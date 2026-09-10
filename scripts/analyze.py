@@ -14,7 +14,7 @@ OUT = ROOT / "public" / "baseline.json"
 IST = "Asia/Kolkata"
 PROBS = np.array([10, 25, 50, 75, 90], dtype=float)
 TIMEFRAMES = {"5m": {"lookback": 12, "label": "60m primary"}, "15m": {"lookback": 8, "label": "2h confirmation"}, "1h": {"lookback": 6, "label": "6h context"}}
-REGIME_SPEC = {"version": 2, "activityHigh": 55, "persistenceHigh": 65, "labels": {"trend": "high activity + high persistence", "chop": "high activity + low persistence", "grind": "low activity + high persistence", "dead": "low activity + low persistence"}}
+REGIME_SPEC = {"version": 3, "activityHigh": 50, "persistenceHigh": 50, "labels": {"trend": "activity >= 50 & persistence >= 50, or persistence >= 65 & activity >= 30", "chop": "activity >= 50 & persistence < 50", "grind": "persistence >= 50 & activity < 50", "dead": "activity < 50 & persistence < 50"}}
 
 
 def load_frame(interval: str) -> pd.DataFrame:
@@ -48,7 +48,7 @@ def robust_stats(values: pd.Series) -> list[float]:
 
 
 def local_percentile(value: float, quantiles: np.ndarray) -> float:
-    """Deterministic interpolation mirrored in the browser implementation."""
+    """Interpolation without artificial clamping to 5% or 95%."""
     points: list[tuple[float, float]] = []
     for x, p in zip(np.asarray(quantiles, dtype=float), PROBS):
         if not np.isfinite(x):
@@ -59,10 +59,11 @@ def local_percentile(value: float, quantiles: np.ndarray) -> float:
             points.append((float(x), float(p)))
     if not points:
         return 50.0
-    if value < points[0][0]:
-        return 5.0
-    if value > points[-1][0]:
-        return 95.0
+    if value <= points[0][0]:
+        return max(0.0, (value / max(points[0][0], 1e-6)) * points[0][1])
+    if value >= points[-1][0]:
+        overshoot = (value - points[-1][0]) / max(points[-1][0], 1e-6)
+        return min(100.0, points[-1][1] + overshoot * (100.0 - points[-1][1]))
     for i, (x, p) in enumerate(points):
         if value == x:
             return p
@@ -91,9 +92,11 @@ def score_frame(frame: pd.DataFrame, hist: dict) -> pd.DataFrame:
         activity.append(local_percentile(float(row.range_bp), np.array(b["range"])))
         persistence.append(local_percentile(float(row.persistence), np.array(b["persistence"])))
     frame["activity_percentile"], frame["persistence_percentile"] = activity, persistence
-    high_a = frame.activity_percentile >= REGIME_SPEC["activityHigh"]
-    high_p = frame.persistence_percentile >= REGIME_SPEC["persistenceHigh"]
-    frame["regime"] = np.select([high_a & high_p, high_a & ~high_p, ~high_a & high_p], ["trend", "chop", "grind"], default="dead")
+    act, pers = frame["activity_percentile"], frame["persistence_percentile"]
+    is_trend = ((act >= 50) & (pers >= 50)) | ((pers >= 65) & (act >= 30))
+    is_chop = (act >= 50) & (pers < 50)
+    is_grind = (pers >= 50) & (act < 50)
+    frame["regime"] = np.select([is_trend, is_chop, is_grind], ["trend", "chop", "grind"], default="dead")
     return frame
 
 
@@ -119,9 +122,8 @@ def session_for(index: pd.DatetimeIndex) -> pd.Series:
 def build_entries(frame: pd.DataFrame, fit_end: pd.Timestamp) -> pd.DataFrame:
     """Discrete non-overlapping 15m TREND continuation entries with 1.2 ATR risk."""
     oos = frame[frame.index >= fit_end].copy()
-    # Entry when both regime axes are high and rolling direction is non-zero.
-    # Side is determined by the rolling direction sign.
-    trend = (oos.activity_percentile >= REGIME_SPEC["activityHigh"]) & (oos.persistence_percentile >= REGIME_SPEC["persistenceHigh"])
+    # Entry when regime is trend (either impulse or steady trend)
+    trend = ((oos.activity_percentile >= 50) & (oos.persistence_percentile >= 50)) | ((oos.persistence_percentile >= 65) & (oos.activity_percentile >= 30))
     long = trend & (oos.direction > 0)
     short = trend & (oos.direction < 0)
     horizon, next_allowed, entries = 48, 0, []

@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-09-10T10:57:43.413311+00:00",
+  "generatedAt": "2026-09-10T11:34:29.754404+00:00",
   "dataStart": "2026-03-14T10:25:00+00:00",
   "dataEnd": "2026-09-10T09:10:00+00:00",
   "symbol": "BTCUSDT",
   "regimeSpec": {
-    "version": 2,
-    "activityHigh": 55,
-    "persistenceHigh": 65,
+    "version": 3,
+    "activityHigh": 50,
+    "persistenceHigh": 50,
     "labels": {
-      "trend": "high activity + high persistence",
-      "chop": "high activity + low persistence",
-      "grind": "low activity + high persistence",
-      "dead": "low activity + low persistence"
+      "trend": "activity >= 50 & persistence >= 50, or persistence >= 65 & activity >= 30",
+      "chop": "activity >= 50 & persistence < 50",
+      "grind": "persistence >= 50 & activity < 50",
+      "dead": "activity < 50 & persistence < 50"
     }
   },
   "timeframes": {
@@ -8603,124 +8603,133 @@
     }
   },
   "labels": {
-    "trend": 1261,
-    "chop": 2322,
-    "grind": 4459,
-    "dead": 9234
+    "trend": 2837,
+    "chop": 2099,
+    "grind": 5557,
+    "dead": 6783
   },
   "sessions": [
     {
-      "name": "London",
-      "samples": 11,
-      "mfeR": 3.4093660160387658,
-      "maeR": 2.9272061998591,
-      "ratio": 1.164716724159328,
-      "hit2R": 0.5454545454545454,
-      "medianOutcomeR": 2.0
+      "name": "NY open",
+      "samples": 9,
+      "mfeR": 2.5845301368313707,
+      "maeR": 0.473184377181476,
+      "ratio": 5.461993805091646,
+      "hit2R": 0.4444444444444444,
+      "medianOutcomeR": 0.8651920626251877
     },
     {
-      "name": "NY open",
-      "samples": 7,
-      "mfeR": 3.764112470487233,
-      "maeR": 1.405007522028793,
-      "ratio": 2.6790692658014787,
+      "name": "Tokyo",
+      "samples": 19,
+      "mfeR": 3.181668003964716,
+      "maeR": 2.6546883092554063,
+      "ratio": 1.1985090652156893,
+      "hit2R": 0.2631578947368421,
+      "medianOutcomeR": -1.0
+    },
+    {
+      "name": "London",
+      "samples": 21,
+      "mfeR": 3.38881399287909,
+      "maeR": 2.9272061998591,
+      "ratio": 1.1576956871170228,
       "hit2R": 0.42857142857142855,
       "medianOutcomeR": -1.0
     },
     {
-      "name": "Tokyo",
-      "samples": 10,
-      "mfeR": 3.3541048522493595,
-      "maeR": 4.00033646316009,
-      "ratio": 0.8384556856999384,
-      "hit2R": 0.3,
-      "medianOutcomeR": -1.0
-    },
-    {
       "name": "Overnight",
-      "samples": 10,
-      "mfeR": 1.5771703465398716,
-      "maeR": 2.448629193198923,
-      "ratio": 0.6441033827908563,
-      "hit2R": 0.3,
+      "samples": 9,
+      "mfeR": 1.947207280354505,
+      "maeR": 3.1360161033865075,
+      "ratio": 0.6209175004719406,
+      "hit2R": 0.3333333333333333,
       "medianOutcomeR": -1.0
     },
     {
       "name": "NY afternoon",
-      "samples": 9,
-      "mfeR": 2.080093384069567,
-      "maeR": 3.655421974998522,
-      "ratio": 0.5690433001433187,
-      "hit2R": 0.3333333333333333,
+      "samples": 12,
+      "mfeR": 1.0143052037355496,
+      "maeR": 2.4983300281153893,
+      "ratio": 0.4059932804396899,
+      "hit2R": 0.16666666666666666,
       "medianOutcomeR": -1.0
     }
   ],
   "weekdays": [
     {
-      "name": "Fri",
-      "samples": 9,
-      "mfeR": 3.6646652409935894,
-      "maeR": 1.1755443456452217,
-      "ratio": 3.1174198188007636,
-      "hit2R": 0.4444444444444444,
-      "medianOutcomeR": -1.0
-    },
-    {
       "name": "Thu",
-      "samples": 7,
-      "mfeR": 3.764112470487233,
-      "maeR": 2.9272061998591,
-      "ratio": 1.2859061553874878,
-      "hit2R": 0.42857142857142855,
-      "medianOutcomeR": -1.0
-    },
-    {
-      "name": "Mon",
-      "samples": 7,
-      "mfeR": 1.5986042905143414,
-      "maeR": 1.5006999175439664,
-      "ratio": 1.0652391406341946,
-      "hit2R": 0.2857142857142857,
-      "medianOutcomeR": -1.0
-    },
-    {
-      "name": "Wed",
-      "samples": 7,
-      "mfeR": 3.0277625903651373,
-      "maeR": 2.903590304355793,
-      "ratio": 1.0427650849443424,
-      "hit2R": 0.42857142857142855,
-      "medianOutcomeR": -1.0
+      "samples": 10,
+      "mfeR": 4.122143232595301,
+      "maeR": 2.228696663908115,
+      "ratio": 1.849575718109142,
+      "hit2R": 0.6,
+      "medianOutcomeR": 2.0
     },
     {
       "name": "Tue",
+      "samples": 13,
+      "mfeR": 2.880295796616064,
+      "maeR": 1.6576667791652768,
+      "ratio": 1.7375601856884928,
+      "hit2R": 0.5384615384615384,
+      "medianOutcomeR": 2.0
+    },
+    {
+      "name": "Sat",
       "samples": 6,
-      "mfeR": 2.128034797513492,
-      "maeR": 3.8928179017163793,
-      "ratio": 0.5466566511049032,
-      "hit2R": 0.3333333333333333,
+      "mfeR": 3.112995667211141,
+      "maeR": 2.1595910147777975,
+      "ratio": 1.4414746338122917,
+      "hit2R": 0.16666666666666666,
+      "medianOutcomeR": -1.0
+    },
+    {
+      "name": "Fri",
+      "samples": 13,
+      "mfeR": 3.4378440617567145,
+      "maeR": 2.739063629790306,
+      "ratio": 1.2551165385011174,
+      "hit2R": 0.23076923076923078,
       "medianOutcomeR": -1.0
     },
     {
       "name": "Sun",
-      "samples": 9,
-      "mfeR": 2.080093384069567,
-      "maeR": 4.483981655613749,
-      "ratio": 0.46389426715548243,
-      "hit2R": 0.3333333333333333,
+      "samples": 8,
+      "mfeR": 3.4251165135952455,
+      "maeR": 3.810025545755087,
+      "ratio": 0.8989746846740476,
+      "hit2R": 0.375,
+      "medianOutcomeR": -1.0
+    },
+    {
+      "name": "Mon",
+      "samples": 10,
+      "mfeR": 1.8464492367725498,
+      "maeR": 3.78323132047702,
+      "ratio": 0.48806141638194483,
+      "hit2R": 0.2,
+      "medianOutcomeR": -1.0
+    },
+    {
+      "name": "Wed",
+      "samples": 10,
+      "mfeR": 1.4574443931952998,
+      "maeR": 3.465014165966912,
+      "ratio": 0.42061715288503015,
+      "hit2R": 0.1,
       "medianOutcomeR": -1.0
     }
   ],
   "sanity": {
     "2026-09-09": {
       "label": "grind",
-      "activity": 5.0,
+      "activity": 8.194850891854712,
       "persistence": 70.12653002635153,
       "note": "IST day slice; sanity check only, never used to tune thresholds"
     },
     "2026-09-10": {
       "label": "dead",
-      "activity": 5.0,
+      "activity": 9.938555608331006,
       "persistence": 32.04018832986921,
       "note": "IST day slice; sanity check only, never used to tune thresholds"
     }

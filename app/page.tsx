@@ -55,6 +55,18 @@ function keyFor(date: Date) {
   return `${weekday}-${hour}`;
 }
 
+function rankPercentile(value: number, series: number[]): number {
+  if (!series.length) return 50;
+  let countLess = 0;
+  let countEqual = 0;
+  for (let i = 0; i < series.length; i++) {
+    if (series[i] < value) countLess++;
+    else if (series[i] === value) countEqual++;
+  }
+  const pct = ((countLess + 0.5 * countEqual) / series.length) * 100;
+  return Math.round(pct * 10) / 10;
+}
+
 function percentile(value: number, quantiles: number[]) {
   const probs = [10, 25, 50, 75, 90];
   const points: { x: number; p: number }[] = [];
@@ -65,14 +77,21 @@ function percentile(value: number, quantiles: number[]) {
     else points.push({ x, p: probs[i] });
   });
   if (!points.length) return 50;
-  if (value < points[0].x) return 5;
-  if (value > points.at(-1)!.x) return 95;
+  if (value <= points[0].x) {
+    return Math.max(0, Math.round((value / Math.max(points[0].x, 1e-6)) * points[0].p * 10) / 10);
+  }
+  if (value >= points.at(-1)!.x) {
+    const last = points.at(-1)!;
+    const overshoot = (value - last.x) / Math.max(last.x, 1e-6);
+    return Math.min(100, Math.round((last.p + overshoot * (100 - last.p)) * 10) / 10);
+  }
   for (let i = 0; i < points.length; i++) {
     const point = points[i];
     if (value === point.x) return point.p;
     if (i && value < point.x) {
       const left = points[i - 1];
-      return left.p + ((value - left.x) / (point.x - left.x)) * (point.p - left.p);
+      const p = left.p + ((value - left.x) / (point.x - left.x)) * (point.p - left.p);
+      return Math.round(p * 10) / 10;
     }
   }
   return points.at(-1)!.p;
@@ -94,11 +113,35 @@ function calculate(candles: Candle[], lookback: number) {
   };
 }
 
-function labelFor(activity: number, persistence: number, spec: Baseline['regimeSpec']): Condition {
-  const highA = activity >= spec.activityHigh, highP = persistence >= spec.persistenceHigh;
-  if (highA && highP) return 'TREND';
-  if (highA) return 'CHOP';
-  if (highP) return 'GRIND';
+function extractMetricsHistory(candles: Candle[], lookback: number): { range: number; persistence: number; change: number }[] {
+  if (candles.length <= lookback) return [];
+  const result: { range: number; persistence: number; change: number }[] = [];
+  for (let i = lookback; i < candles.length; i++) {
+    const window = candles.slice(i - lookback, i + 1);
+    const bars = window.slice(1);
+    const close = window.at(-1)!.c;
+    const prior = window[0].c;
+    const tr = bars.reduce((sum, bar, idx) => {
+      const prev = window[idx].c;
+      return sum + Math.max(bar.h - bar.l, Math.abs(bar.h - prev), Math.abs(bar.l - prev));
+    }, 0);
+    const absMove = bars.reduce((sum, bar, idx) => sum + Math.abs(bar.c - window[idx].c), 0);
+    result.push({
+      range: (tr / Math.max(close, 1)) * 10_000,
+      persistence: absMove ? Math.abs(close - prior) / absMove : 0,
+      change: ((close - prior) / Math.max(prior, 1)) * 100,
+    });
+  }
+  return result;
+}
+
+function labelFor(activity: number, persistence: number, _spec?: Baseline['regimeSpec']): Condition {
+  // Impulsive Trend (strong activity + directional follow-through) OR
+  // Steady Trend (clean, smooth directional advance with moderate activity)
+  const isTrend = (activity >= 50 && persistence >= 50) || (persistence >= 65 && activity >= 30);
+  if (isTrend) return 'TREND';
+  if (activity >= 50 && persistence < 50) return 'CHOP';
+  if (persistence >= 50 && activity < 50) return 'GRIND';
   return 'DEAD';
 }
 
@@ -257,26 +300,67 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(intervals.map(async interval => {
-      const limit = interval === '5m' ? 600 : 120;
-      const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=${interval}&limit=${limit}`);
-      if (!response.ok) throw new Error(`History request failed for ${interval}`);
+
+    async function fetchInterval(interval: Interval): Promise<Candle[]> {
       const now = Date.now();
-      const rows = await response.json();
-      const closed = rows
-        .filter((row: number[]) => Number(row[6]) <= now)
-        .map((row: number[]) => ({
+      if (interval === '5m') {
+        // Fetch 7 full days of 5m candles (2016 bars) in 2 batches of 1008
+        try {
+          const res1 = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=1008`);
+          if (!res1.ok) throw new Error('Batch 1 failed');
+          const rows1: (number | string)[][] = await res1.json();
+          const firstTime = rows1.length ? Number(rows1[0][0]) : 0;
+          let rows2: (number | string)[][] = [];
+          if (firstTime > 0) {
+            try {
+              const res2 = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=1008&endTime=${firstTime - 1}`);
+              if (res2.ok) rows2 = await res2.json();
+            } catch {
+              /* ignore batch 2 error, fallback to rows1 */
+            }
+          }
+          const combined = [...rows2, ...rows1];
+          return combined
+            .filter((row: (number | string)[]) => Number(row[6]) <= now)
+            .map((row: (number | string)[]) => ({
+              t: +row[0], o: +row[1], h: +row[2], l: +row[3], c: +row[4], v: +row[5],
+              q: +row[7], n: +row[8], x: true,
+            }));
+        } catch {
+          const res = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=1000`);
+          const rows: (number | string)[][] = await res.json();
+          return rows
+            .filter((row: (number | string)[]) => Number(row[6]) <= now)
+            .map((row: (number | string)[]) => ({
+              t: +row[0], o: +row[1], h: +row[2], l: +row[3], c: +row[4], v: +row[5],
+              q: +row[7], n: +row[8], x: true,
+            }));
+        }
+      }
+
+      const limit = interval === '15m' ? 672 : 168; // 7 days of 15m (672 bars) and 1h (168 bars)
+      const res = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=${interval}&limit=${limit}`);
+      if (!res.ok) throw new Error(`History request failed for ${interval}`);
+      const rows: (number | string)[][] = await res.json();
+      return rows
+        .filter((row: (number | string)[]) => Number(row[6]) <= now)
+        .map((row: (number | string)[]) => ({
           t: +row[0], o: +row[1], h: +row[2], l: +row[3], c: +row[4], v: +row[5],
           q: +row[7], n: +row[8], x: true,
         }));
+    }
+
+    Promise.all(intervals.map(async interval => {
+      const closed = await fetchInterval(interval);
       if (!cancelled) {
         setCandles(previous => ({ ...previous, [interval]: closed }));
       }
     })).then(() => {
-      if (!cancelled) setMessage('Closed historical candles loaded. Streaming live Binance ticks.');
+      if (!cancelled) setMessage('Rolling weekly baseline loaded (7-day adaptive window). Streaming live Binance ticks.');
     }).catch(() => {
       if (!cancelled) setMessage('Binance REST connection failed. Check network access.');
     });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -297,7 +381,7 @@ export default function Home() {
         if (!k) return;
         lastMessage.current = Date.now();
         if (k.x && intervals.includes(k.i as Interval)) {
-          const limit = k.i === '5m' ? 600 : 120;
+          const limit = k.i === '5m' ? 2016 : k.i === '15m' ? 672 : 168;
           setCandles(previous => ({
             ...previous,
             [k.i as Interval]: append(previous[k.i as Interval], {
@@ -337,12 +421,35 @@ export default function Home() {
   const readings = useMemo(() => {
     return Object.fromEntries(intervals.map(interval => {
       const spec = baseline.timeframes[interval];
-      const metrics = spec ? calculate(candles[interval], spec.lookback) : null;
-      if (!spec || !metrics || !candles[interval].length) return [interval, null];
-      const b = spec.hourBaselines[keyFor(new Date(candles[interval].at(-1)!.t))];
-      const activity = percentile(metrics.range, b?.range ?? []);
-      const persistence = percentile(metrics.persistence, b?.persistence ?? []);
-      return [interval, { ...metrics, activity, persistence, label: labelFor(activity, persistence, baseline.regimeSpec) }];
+      const candleList = candles[interval];
+      if (!spec || !candleList.length) return [interval, null];
+
+      const metricsList = extractMetricsHistory(candleList, spec.lookback);
+      if (!metricsList.length) return [interval, null];
+
+      const latest = metricsList.at(-1)!;
+      let activity: number;
+      let persistence: number;
+
+      if (metricsList.length >= 30) {
+        const rollLimit = interval === '5m' ? 2016 : interval === '15m' ? 672 : 168;
+        const start = Math.max(0, metricsList.length - rollLimit);
+        const subRanges = metricsList.slice(start).map(m => m.range);
+        const subPers = metricsList.slice(start).map(m => m.persistence);
+        activity = rankPercentile(latest.range, subRanges);
+        persistence = rankPercentile(latest.persistence, subPers);
+      } else {
+        const b = spec.hourBaselines[keyFor(new Date(candleList.at(-1)!.t))];
+        activity = percentile(latest.range, b?.range ?? []);
+        persistence = percentile(latest.persistence, b?.persistence ?? []);
+      }
+
+      return [interval, {
+        ...latest,
+        activity,
+        persistence,
+        label: labelFor(activity, persistence, baseline.regimeSpec),
+      }];
     })) as Record<Interval, Reading | null>;
   }, [baseline, candles]);
 
@@ -374,28 +481,35 @@ export default function Home() {
     const spec = baseline.timeframes['5m'];
     if (!spec || list.length < 13) return [];
 
+    const metricsList = extractMetricsHistory(list, 12);
+    const allRanges = metricsList.map(m => m.range);
+    const allPers = metricsList.map(m => m.persistence);
+
     const points: HistoryPoint[] = [];
-    for (let i = 12; i < list.length; i++) {
-      const window = list.slice(i - 12, i + 1);
-      const bars = window.slice(1);
-      const close = window.at(-1)!.c;
-      const prior = window[0].c;
+    const rollWindow = 2016; // 7-day weekly rolling adaptive window
 
-      const tr = bars.reduce((sum, bar, idx) => {
-        const prev = window[idx].c;
-        return sum + Math.max(bar.h - bar.l, Math.abs(bar.h - prev), Math.abs(bar.l - prev));
-      }, 0);
-      const absMove = bars.reduce((sum, bar, idx) => sum + Math.abs(bar.c - window[idx].c), 0);
-      const rangeBp = (tr / Math.max(close, 1)) * 10_000;
-      const persistenceVal = absMove ? Math.abs(close - prior) / absMove : 0;
+    for (let k = 0; k < metricsList.length; k++) {
+      const candleIdx = k + 12;
+      const candle = list[candleIdx];
+      const winStart = Math.max(0, k - rollWindow + 1);
+      const subRanges = allRanges.slice(winStart, k + 1);
+      const subPers = allPers.slice(winStart, k + 1);
 
-      const key = keyFor(new Date(window.at(-1)!.t));
-      const b = spec.hourBaselines[key];
-      const activity = percentile(rangeBp, b?.range ?? []);
-      const persistence = percentile(persistenceVal, b?.persistence ?? []);
+      let activity: number;
+      let persistence: number;
+
+      if (subRanges.length >= 30) {
+        activity = rankPercentile(metricsList[k].range, subRanges);
+        persistence = rankPercentile(metricsList[k].persistence, subPers);
+      } else {
+        const key = keyFor(new Date(candle.t));
+        const b = spec.hourBaselines[key];
+        activity = percentile(metricsList[k].range, b?.range ?? []);
+        persistence = percentile(metricsList[k].persistence, b?.persistence ?? []);
+      }
+
       const label = labelFor(activity, persistence, baseline.regimeSpec);
-
-      const d = new Date(window.at(-1)!.t);
+      const d = new Date(candle.t);
       const istLabel = d.toLocaleString('en-IN', {
         timeZone: 'Asia/Kolkata',
         day: '2-digit',
@@ -406,8 +520,8 @@ export default function Home() {
       });
 
       points.push({
-        t: window.at(-1)!.t,
-        price: close,
+        t: candle.t,
+        price: candle.c,
         activity,
         persistence,
         label,
@@ -526,7 +640,7 @@ export default function Home() {
         </div>
         <div className="rail-right">
           <span className="cal-label">
-            Baseline: {baseline.dataStart ? `${baseline.dataStart.slice(0, 10)} → ${baseline.dataEnd.slice(0, 10)}` : 'Loading'}
+            Baseline: Rolling 7-Day Weekly Adaptive
           </span>
           <div className="export-group">
             <button className="export-link" onClick={() => exportJSON().catch(() => setMessage('Export failed.'))}>JSON</button>
@@ -545,7 +659,7 @@ export default function Home() {
           <div className="decision-main">
             <div className="decision-kicker">
               MARKET STATE
-              <Tooltip text="Evaluates 5-minute volatility and directional persistence against local hour & weekday historical norms." />
+              <Tooltip text="Evaluates 5-minute volatility and directional persistence against the rolling 7-day weekly market distribution." />
             </div>
             <div className="decision-title-row">
               <h1 className="decision-title">{info.name}</h1>
@@ -588,48 +702,48 @@ export default function Home() {
           <div className="metric-box">
             <div className="metric-title">
               VOLATILITY PULSE
-              <Tooltip text="Current 60-minute price range compared to historical norms for this exact IST hour & weekday. ≥55% indicates active range expansion." />
+              <Tooltip text="Current 60-minute price range compared to rolling weekly market norms. ≥50% indicates active range expansion." />
             </div>
             <div className="metric-value-row">
               <span className="metric-large">{primary ? `${fmt(primary.activity)}%` : '—'}</span>
               <span className="metric-sublabel">
-                {(primary?.activity ?? 0) >= 55 ? 'Active Range' : 'Depressed Range'}
+                {(primary?.activity ?? 0) >= 50 ? 'Active Range' : 'Depressed Range'}
               </span>
             </div>
             <div className="metric-gauge">
               <div className="metric-gauge-fill" style={{ width: `${Math.min(100, primary?.activity ?? 0)}%` }} />
-              <div className="metric-gauge-cutoff" style={{ left: '55%' }} title="High threshold: 55%" />
+              <div className="metric-gauge-cutoff" style={{ left: '50%' }} title="Median threshold: 50%" />
             </div>
           </div>
 
           <div className="metric-box">
             <div className="metric-title">
               DIRECTION STRENGTH
-              <Tooltip text="Measures directional efficiency: net price move divided by total absolute move over 12 bars. ≥65% indicates strong directional trend without churning." />
+              <Tooltip text="Measures directional efficiency: net price move divided by total absolute move over 12 bars. ≥50% indicates clean directional progress." />
             </div>
             <div className="metric-value-row">
               <span className="metric-large">{primary ? `${fmt(primary.persistence)}%` : '—'}</span>
               <span className="metric-sublabel">
-                {(primary?.persistence ?? 0) >= 65 ? 'Clean Direction' : 'Whippy / Mixed'}
+                {(primary?.persistence ?? 0) >= 50 ? 'Clean Direction' : 'Whippy / Mixed'}
               </span>
             </div>
             <div className="metric-gauge">
               <div className="metric-gauge-fill persistence" style={{ width: `${Math.min(100, primary?.persistence ?? 0)}%` }} />
-              <div className="metric-gauge-cutoff" style={{ left: '65%' }} title="High threshold: 65%" />
+              <div className="metric-gauge-cutoff" style={{ left: '50%' }} title="Direction threshold: 50%" />
             </div>
           </div>
 
           <div className="metric-box">
             <div className="metric-title">
-              24H DORMANT RATIO
-              <Tooltip text="The percentage of the last 24 hours that Bitcoin spent in DEAD (flatline) mode. High numbers show why patience and waiting for momentum is essential." />
+              {chartRange.toUpperCase()} DORMANT RATIO
+              <Tooltip text={`The percentage of the last ${chartRange} that Bitcoin spent in DEAD (flatline) mode. High numbers show why patience and waiting for momentum is essential.`} />
             </div>
             <div className="metric-value-row">
               <span className="metric-large">{stats.deadPct}%</span>
               <span className="metric-sublabel">Flatlined Time</span>
             </div>
             <div className="metric-note-line">
-              Active Trend: <strong>{stats.trendPct}%</strong> · Choppy: <strong>{stats.chopPct}%</strong>
+              Trend: <strong>{stats.trendPct}%</strong> · Chop: <strong>{stats.chopPct}%</strong> · Drift: <strong>{stats.grindPct}%</strong>
             </div>
           </div>
 
@@ -656,7 +770,7 @@ export default function Home() {
             <div className="chart-heading">
               <h2 className="chart-title">24h / 48h Market Condition Timeline</h2>
               <span className="chart-sub">
-                Shows where Bitcoin was <strong>DEAD (flatline)</strong> versus <strong>TRENDING (momentum)</strong>.
+                Shows where Bitcoin was <strong>DEAD (flatline)</strong> versus <strong>TRENDING (momentum)</strong> calibrated against weekly market volume.
               </span>
             </div>
 
@@ -913,8 +1027,7 @@ export default function Home() {
         <footer className="footer-rail">
           <span>{message}</span>
           <span>
-            Calibration notice: Baselines fit on historical data ({baseline.dataStart?.slice(0, 10)} → {baseline.dataEnd?.slice(0, 10)}).
-            In calmer markets, TREND will appear less frequently.
+            Calibration notice: Weekly rolling baseline dynamically adapts to market regime expansions and contractions over a 7-day window.
           </span>
         </footer>
       </main>
