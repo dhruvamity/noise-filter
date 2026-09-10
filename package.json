@@ -1,0 +1,27 @@
+{
+  "name": "btc-market-regime-terminal",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "data:download": "python3 scripts/download_klines.py",
+    "data:analyze": "python3 scripts/analyze.py",
+    "data:verify": "python3 scripts/verify_research.py",
+    "data:pipeline": "python3 scripts/download_klines.py && python3 scripts/analyze.py && python3 scripts/verify_research.py",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^16.3.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "typescript": "5.7.2"
+  }
+}

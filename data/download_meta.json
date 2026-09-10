@@ -1,0 +1,26 @@
+{
+  "symbol": "BTCUSDT",
+  "source": "https://fapi.binance.com",
+  "serverTime": 1789031539899,
+  "startTime": 1773479539899,
+  "endTime": 1789031539899,
+  "intervals": [
+    "5m",
+    "15m",
+    "1h"
+  ],
+  "fields": [
+    "open_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_time",
+    "quote_volume",
+    "trade_count",
+    "taker_buy_volume",
+    "taker_buy_quote_volume",
+    "ignore"
+  ]
+}

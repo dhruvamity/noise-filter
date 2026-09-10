@@ -1,0 +1,13 @@
+node_modules
+.next
+data/raw
+data/*.csv
+data/*.parquet
+data/analysis
+*.pyc
+__pycache__
+data/regime-log.jsonl
+data/exchange_info.json
+.DS_Store
+tsconfig.tsbuildinfo
+.env*
