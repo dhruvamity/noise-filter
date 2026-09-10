@@ -3,29 +3,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Interval = '5m' | '15m' | '1h';
-type Candle = { t:number; o:number; h:number; l:number; c:number; v:number; n:number; q:number; x:boolean };
-type Quantiles = { range:number[]; persistence:number[]; samples:number };
-type Timeframe = { lookback:number; label:string; hourBaselines:Record<string, Quantiles> };
-type StudyRow = { name:string; samples:number; mfeR:number; maeR:number; ratio:number; hit2R:number; medianOutcomeR:number };
+type Candle = { t: number; o: number; h: number; l: number; c: number; v: number; n: number; q: number; x: boolean };
+type Quantiles = { range: number[]; persistence: number[]; samples: number };
+type Timeframe = { lookback: number; label: string; hourBaselines: Record<string, Quantiles> };
+type StudyRow = { name: string; samples: number; mfeR: number; maeR: number; ratio: number; hit2R: number; medianOutcomeR: number };
 type Baseline = {
-  generatedAt:string;
-  dataStart:string;
-  dataEnd:string;
-  symbol:string;
-  regimeSpec:{activityHigh:number; persistenceHigh:number; labels:Record<string,string>};
-  timeframes:Record<Interval,Timeframe>;
-  sessions:StudyRow[];
-  weekdays:StudyRow[];
+  generatedAt: string;
+  dataStart: string;
+  dataEnd: string;
+  symbol: string;
+  regimeSpec: { activityHigh: number; persistenceHigh: number; labels: Record<string, string> };
+  timeframes: Record<Interval, Timeframe>;
+  sessions: StudyRow[];
+  weekdays: StudyRow[];
 };
-type ConditionType = 'TREND' | 'CHOP' | 'GRIND' | 'DEAD';
-type Reading = { activity:number; persistence:number; label:ConditionType; range:number; change:number };
+type Condition = 'TREND' | 'CHOP' | 'GRIND' | 'DEAD';
+type Reading = { activity: number; persistence: number; label: Condition; range: number; change: number };
 
 type HistoryPoint = {
   t: number;
   price: number;
   activity: number;
   persistence: number;
-  label: ConditionType;
+  label: Condition;
   istLabel: string;
 };
 
@@ -43,7 +43,7 @@ const empty: Baseline = {
 };
 
 const fmt = (n: number, digits = 0) => Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: digits }) : '—';
-const fmtCurrency = (n: number) => Number.isFinite(n) ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—';
+const fmtUsd = (n: number) => Number.isFinite(n) ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—';
 
 function istParts(date: Date) {
   const shifted = new Date(date.getTime() + 19_800_000);
@@ -94,7 +94,7 @@ function calculate(candles: Candle[], lookback: number) {
   };
 }
 
-function labelFor(activity: number, persistence: number, spec: Baseline['regimeSpec']): ConditionType {
+function labelFor(activity: number, persistence: number, spec: Baseline['regimeSpec']): Condition {
   const highA = activity >= spec.activityHigh, highP = persistence >= spec.persistenceHigh;
   if (highA && highP) return 'TREND';
   if (highA) return 'CHOP';
@@ -185,61 +185,50 @@ function downloadServerLog() {
   a.click();
 }
 
-// Plain-English retail configuration for conditions
-const RETAIL_CONFIG: Record<ConditionType, {
+const CONDITION_META: Record<Condition, {
   name: string;
-  badge: string;
-  badgeClass: string;
-  summary: string;
-  actionTitle: string;
-  actionDesc: string;
+  tag: string;
+  stance: string;
+  tactics: string;
+  code: string;
   color: string;
-  bgHex: string;
-  tip: string;
+  bgRgba: string;
 }> = {
   TREND: {
     name: 'TRENDING',
-    badge: '🟢 GREEN LIGHT — HIGH MOMENTUM',
-    badgeClass: 'badge-trend',
-    summary: 'Clean directional momentum with high volume.',
-    actionTitle: 'Scan For Setups (Prime Trading Window)',
-    actionDesc: 'Both volatility and direction are high. Clean trend continuations and pullback setups have the highest statistical edge right now.',
-    color: '#00e5a3',
-    bgHex: 'rgba(0, 229, 163, 0.12)',
-    tip: 'Trade with the direction. Keep stop-losses disciplined.',
+    tag: 'ACTIVE MOMENTUM',
+    stance: 'Favorable conditions. Both range expansion and directional persistence are elevated above historical baselines.',
+    tactics: 'Execute momentum continuation and pullback setups with defined invalidation.',
+    code: 'trend',
+    color: '#10b981',
+    bgRgba: 'rgba(16, 185, 129, 0.12)',
   },
   CHOP: {
     name: 'CHOPPY',
-    badge: '🟡 CAUTION — TRAP ZONE',
-    badgeClass: 'badge-chop',
-    summary: 'High volatility but zero direction.',
-    actionTitle: 'Avoid Breakout Chasing (High Stop-Out Risk)',
-    actionDesc: 'Price is violently whipping back and forth without follow-through. Breakouts are prone to immediate fakeouts.',
+    tag: 'UNFAVORABLE · WHIPSAW',
+    stance: 'Elevated range without directional persistence. Rapid bidirectional reversals predominate.',
+    tactics: 'Breakout signals have low follow-through probability. Mean-reversion or cash stance advised.',
+    code: 'chop',
     color: '#f59e0b',
-    bgHex: 'rgba(245, 158, 11, 0.10)',
-    tip: 'False breakouts are common. Wait for direction to emerge.',
+    bgRgba: 'rgba(245, 158, 11, 0.10)',
   },
   GRIND: {
     name: 'SLOW DRIFT',
-    badge: '🔵 SELECTIVE — SLOW DRIFT',
-    badgeClass: 'badge-grind',
-    summary: 'Directional crawl with low volatility/range.',
-    actionTitle: 'Take Smaller Targets (Creep Move)',
-    actionDesc: 'Direction persists, but range and volume are subdued. Don’t expect explosive runners; take small profit targets.',
+    tag: 'SUBDUED DIRECTION',
+    stance: 'Directional persistence present, but range expansion is below baseline norms.',
+    tactics: 'Low-velocity drift. Reduce target expectations and avoid chasing extended moves.',
+    code: 'grind',
     color: '#38bdf8',
-    bgHex: 'rgba(56, 189, 248, 0.08)',
-    tip: 'Move is slow. Squeeze smaller profit targets.',
+    bgRgba: 'rgba(56, 189, 248, 0.08)',
   },
   DEAD: {
-    name: 'DEAD (SLEEP)',
-    badge: '⚪ STAND ASIDE — MARKET IS DEAD',
-    badgeClass: 'badge-dead',
-    summary: 'Flatlined price action and low volume.',
-    actionTitle: 'Sit On Your Hands (Preserve Capital)',
-    actionDesc: 'Low volatility, zero momentum. Trading in this zone loses money to exchange fees, spreads, and false hope. Wait for volume to return.',
-    color: '#94a3b8',
-    bgHex: 'rgba(148, 163, 184, 0.08)',
-    tip: 'Zero edge. Sit out and protect your mental and financial capital.',
+    name: 'DEAD / FLAT',
+    tag: 'ZERO EDGE · DORMANT',
+    stance: 'Both range and persistence sit in the lower historical distribution. Expected value is negative after fees.',
+    tactics: 'Do not initiate discretionary momentum positions. Wait for volatility expansion.',
+    code: 'dead',
+    color: '#9ca3af',
+    bgRgba: 'rgba(156, 163, 175, 0.07)',
   },
 };
 
@@ -247,23 +236,21 @@ export default function Home() {
   const [baseline, setBaseline] = useState<Baseline>(empty);
   const [candles, setCandles] = useState<Record<Interval, Candle[]>>({ '5m': [], '15m': [], '1h': [] });
   const [status, setStatus] = useState<'loading' | 'live' | 'stale' | 'error'>('loading');
-  const [message, setMessage] = useState('Loading research baseline and closed candle history…');
+  const [message, setMessage] = useState('Initializing research baseline and closed history...');
   const [chartRange, setChartRange] = useState<'24h' | '48h'>('24h');
-  const [filterMode, setFilterMode] = useState<'all' | 'dead-only' | 'trend-only'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'dead' | 'trend'>('all');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const lastMessage = useRef(0);
   const lastLogged = useRef(0);
 
-  // Fetch baseline
   useEffect(() => {
     fetch('/baseline.json')
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setBaseline)
-      .catch(() => setMessage('Baseline JSON is missing — run the research pipeline before deploying.'));
+      .catch(() => setMessage('Baseline JSON artifact missing. Run data pipeline before deploying.'));
   }, []);
 
-  // Fetch closed history (600 candles for 5m to support full 48h chart)
   useEffect(() => {
     let cancelled = false;
     Promise.all(intervals.map(async interval => {
@@ -282,14 +269,13 @@ export default function Home() {
         setCandles(previous => ({ ...previous, [interval]: closed }));
       }
     })).then(() => {
-      if (!cancelled) setMessage('Closed historical candles loaded; waiting for live Binance stream.');
+      if (!cancelled) setMessage('Closed historical candles loaded. Streaming Binance WebSocket updates.');
     }).catch(() => {
-      if (!cancelled) setMessage('Could not seed Binance history. Check network access; no forming candle is used for scoring.');
+      if (!cancelled) setMessage('Binance REST connection failed. Check network access.');
     });
     return () => { cancelled = true; };
   }, []);
 
-  // WebSocket connection for real-time closed candle updates
   useEffect(() => {
     const streams = intervals.map(x => `btcusdt@kline_${x}`).join('/');
     let socket: WebSocket | undefined, retry = 0, timer: ReturnType<typeof setTimeout>;
@@ -300,7 +286,7 @@ export default function Home() {
         retry = 0;
         lastMessage.current = Date.now();
         setStatus('live');
-        setMessage('Live Binance Futures stream connected; decisions update on closed candles.');
+        setMessage('Binance Futures market stream connected. Scoring evaluates strictly on closed bars.');
       };
       socket.onmessage = event => {
         const k = JSON.parse(event.data)?.data?.k;
@@ -318,7 +304,7 @@ export default function Home() {
       };
       socket.onclose = () => {
         setStatus('stale');
-        setMessage('Stream disconnected — reconnecting. Last closed-candle reading is retained.');
+        setMessage('WebSocket stream dropped. Reconnecting...');
         retry = Math.min(retry + 1, 6);
         timer = setTimeout(connect, Math.min(30_000, 1_000 * 2 ** retry));
       };
@@ -327,13 +313,13 @@ export default function Home() {
 
     try { connect(); } catch {
       setStatus('error');
-      setMessage('Browser WebSocket unavailable.');
+      setMessage('Browser WebSocket initialization failed.');
     }
 
     const watch = setInterval(() => {
       if (lastMessage.current && Date.now() - lastMessage.current > 90_000) {
         setStatus('stale');
-        setMessage('No Binance message for 90 seconds — waiting for reconnect.');
+        setMessage('No tick received for 90s. Reconnection pending.');
       }
     }, 15_000);
 
@@ -344,7 +330,6 @@ export default function Home() {
     };
   }, []);
 
-  // Compute live readings for 5m, 15m, 1h
   const readings = useMemo(() => {
     return Object.fromEntries(intervals.map(interval => {
       const spec = baseline.timeframes[interval];
@@ -358,10 +343,9 @@ export default function Home() {
   }, [baseline, candles]);
 
   const primary = readings['5m'];
-  const currentCondition: ConditionType = primary?.label ?? 'DEAD';
-  const currentRetail = RETAIL_CONFIG[currentCondition];
+  const activeCondition: Condition = primary?.label ?? 'DEAD';
+  const meta = CONDITION_META[activeCondition];
 
-  // Log closed calls
   useEffect(() => {
     const last = candles['5m'].at(-1);
     if (!last || !primary || last.t === lastLogged.current) return;
@@ -377,11 +361,10 @@ export default function Home() {
       context15m: readings['15m']?.label ?? 'WAIT',
       context1h: readings['1h']?.label ?? 'WAIT',
     };
-    saveCall(record).catch(() => setMessage('Live analysis works, but IndexedDB logging is unavailable in this browser.'));
+    saveCall(record).catch(() => setMessage('IndexedDB storage unavailable in this browser session.'));
     postToServer(record);
   }, [candles, primary, readings]);
 
-  // Compute full historical 5m series for chart
   const historySeries: HistoryPoint[] = useMemo(() => {
     const list = candles['5m'];
     const spec = baseline.timeframes['5m'];
@@ -408,14 +391,14 @@ export default function Home() {
       const persistence = percentile(persistenceVal, b?.persistence ?? []);
       const label = labelFor(activity, persistence, baseline.regimeSpec);
 
-      const istDate = new Date(window.at(-1)!.t);
-      const istLabel = istDate.toLocaleString('en-IN', {
+      const d = new Date(window.at(-1)!.t);
+      const istLabel = d.toLocaleString('en-IN', {
         timeZone: 'Asia/Kolkata',
-        day: 'numeric',
+        day: '2-digit',
         month: 'short',
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true,
+        hour12: false,
       });
 
       points.push({
@@ -430,14 +413,12 @@ export default function Home() {
     return points;
   }, [candles, baseline]);
 
-  // Slice historical points according to 24h (288 bars) or 48h (576 bars)
   const chartPoints = useMemo(() => {
     const count = chartRange === '24h' ? 288 : 576;
     return historySeries.slice(-count);
   }, [historySeries, chartRange]);
 
-  // Compute breakdown stats for selected timeframe
-  const chartStats = useMemo(() => {
+  const stats = useMemo(() => {
     if (!chartPoints.length) return { deadPct: 0, trendPct: 0, chopPct: 0, grindPct: 0, streakText: '—', totalHours: 0 };
     const total = chartPoints.length;
     let dead = 0, trend = 0, chop = 0, grind = 0;
@@ -448,32 +429,30 @@ export default function Home() {
       else if (p.label === 'GRIND') grind++;
     });
 
-    // Compute current streak
     const lastLabel = chartPoints.at(-1)!.label;
     let streakCount = 0;
     for (let i = chartPoints.length - 1; i >= 0; i--) {
       if (chartPoints[i].label === lastLabel) streakCount++;
       else break;
     }
-    const streakMinutes = streakCount * 5;
-    const streakHours = Math.floor(streakMinutes / 60);
-    const streakRemMin = streakMinutes % 60;
-    const streakStr = streakHours > 0 ? `${streakHours}h ${streakRemMin}m` : `${streakRemMin}m`;
+    const mins = streakCount * 5;
+    const hours = Math.floor(mins / 60);
+    const remMin = mins % 60;
+    const streakStr = hours > 0 ? `${hours}h ${remMin}m` : `${remMin}m`;
 
     return {
       deadPct: Math.round((dead / total) * 100),
       trendPct: Math.round((trend / total) * 100),
       chopPct: Math.round((chop / total) * 100),
       grindPct: Math.round((grind / total) * 100),
-      streakText: `${RETAIL_CONFIG[lastLabel].name} for last ${streakStr}`,
+      streakText: `${CONDITION_META[lastLabel].name} · ${streakStr}`,
       totalHours: Math.round(total * 5 / 60),
     };
   }, [chartPoints]);
 
-  // Group contiguous condition spans for chart background shading
   const conditionBands = useMemo(() => {
     if (!chartPoints.length) return [];
-    const bands: { start: number; end: number; label: ConditionType }[] = [];
+    const bands: { start: number; end: number; label: Condition }[] = [];
     let current = { start: 0, end: 0, label: chartPoints[0].label };
 
     for (let i = 1; i < chartPoints.length; i++) {
@@ -488,555 +467,522 @@ export default function Home() {
     return bands;
   }, [chartPoints]);
 
-  // SVG Chart Dimensions & Scales
-  const svgWidth = 940;
-  const svgHeight = 280;
-  const padLeft = 68;
-  const padRight = 20;
-  const padTop = 20;
-  const padBottom = 35;
+  const svgWidth = 980;
+  const svgHeight = 240;
+  const padLeft = 65;
+  const padRight = 16;
+  const padTop = 16;
+  const padBottom = 28;
   const plotW = svgWidth - padLeft - padRight;
   const plotH = svgHeight - padTop - padBottom;
 
-  const { minPrice, maxPrice, pricePath, areaPath } = useMemo(() => {
-    if (!chartPoints.length) return { minPrice: 0, maxPrice: 0, pricePath: '', areaPath: '' };
+  const { minPrice, maxPrice, pricePath } = useMemo(() => {
+    if (!chartPoints.length) return { minPrice: 0, maxPrice: 0, pricePath: '' };
     const prices = chartPoints.map(p => p.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const spread = max - min || 1;
-    const pMin = min - spread * 0.04;
-    const pMax = max + spread * 0.04;
+    const pMin = min - spread * 0.05;
+    const pMax = max + spread * 0.05;
 
     const getX = (idx: number) => padLeft + (idx / Math.max(1, chartPoints.length - 1)) * plotW;
     const getY = (price: number) => padTop + plotH - ((price - pMin) / (pMax - pMin)) * plotH;
 
     const points = chartPoints.map((p, idx) => `${getX(idx).toFixed(1)},${getY(p.price).toFixed(1)}`);
-    const pathD = 'M ' + points.join(' L ');
-    const areaD = `${pathD} L ${getX(chartPoints.length - 1).toFixed(1)},${(padTop + plotH).toFixed(1)} L ${getX(0).toFixed(1)},${(padTop + plotH).toFixed(1)} Z`;
-
-    return { minPrice: pMin, maxPrice: pMax, pricePath: pathD, areaPath: areaD };
+    return { minPrice: pMin, maxPrice: pMax, pricePath: 'M ' + points.join(' L ') };
   }, [chartPoints, plotW, plotH, padLeft, padTop]);
 
-  // Multi-timeframe confirmation checks
   const confirm15 = ['TREND', 'GRIND'].includes(readings['15m']?.label ?? '');
   const confirm1h = ['TREND', 'GRIND'].includes(readings['1h']?.label ?? '');
 
-  const multiTimeframeAdvice = useMemo(() => {
-    if (currentCondition === 'TREND') {
-      if (confirm15 && confirm1h) return 'Triple Alignment: 5m, 15m, and 1h all show active momentum. Prime high-probability trading window.';
-      if (confirm15) return 'Short-term momentum is active (5m + 15m). Wait for 1h confirmation before sizing up aggressively.';
-      return 'Short-term 5m move lacks 15m support. Prone to quick exhaustion; proceed cautiously.';
-    }
-    if (currentCondition === 'CHOP') return 'Price is whipsawing back and forth. Breakouts are traps; avoid trend-following entries.';
-    if (currentCondition === 'GRIND') return 'Slow directional crawl on low volume. Expect small, slow moves; tighten profit targets.';
-    return 'Market has flatlined with no volume or direction. Protect your capital — sit on your hands and wait.';
-  }, [currentCondition, confirm15, confirm1h]);
+  const alignmentStatus = useMemo(() => {
+    if (confirm15 && confirm1h) return 'Full Multi-Timeframe Alignment (5m · 15m · 1h)';
+    if (confirm15) return 'Partial Alignment (5m + 15m Confirmed; 1h Divergent)';
+    return 'Divergent (5m lacks higher timeframe confirmation)';
+  }, [confirm15, confirm1h]);
 
-  const statusText = status === 'live' ? 'LIVE FEED' : status === 'stale' ? 'STALE' : 'OFFLINE';
-  const when = primary ? new Date(candles['5m'].at(-1)!.t).toLocaleString('en-IN', {
-    hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata', hour12: true,
-  }) : 'waiting for closed history';
-
-  // Hover point selection
   const activeHover = hoverIndex !== null && chartPoints[hoverIndex] ? chartPoints[hoverIndex] : (chartPoints.at(-1) ?? null);
   const activeHoverIdx = hoverIndex !== null ? hoverIndex : (chartPoints.length - 1);
   const activeHoverX = chartPoints.length > 1 ? padLeft + (activeHoverIdx / (chartPoints.length - 1)) * plotW : padLeft;
   const activeHoverY = activeHover && maxPrice > minPrice ? padTop + plotH - ((activeHover.price - minPrice) / (maxPrice - minPrice)) * plotH : padTop;
 
+  const lastTimestamp = candles['5m'].at(-1)?.t;
+  const istDateStr = lastTimestamp
+    ? new Date(lastTimestamp).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }) + ' IST'
+    : 'Awaiting sync';
+
   return (
-    <main className="shell">
-      {/* Top Header */}
-      <header className="topbar">
-        <div>
-          <div className="eyebrow">BTC / USDT Perpetual · Real-Time Trading Weather</div>
-          <h1>Should You Trade Bitcoin Right Now?</h1>
-          <p className="sub">
-            A research-backed market filter that tells retail traders whether market conditions are clean, choppy, or dead.
-            It describes current trading conditions — it does not predict future prices.
-          </p>
+    <div className="terminal-root">
+      {/* Top Telemetry Rail */}
+      <header className="telemetry-bar">
+        <div className="telemetry-item symbol-item">
+          <span className="telemetry-label">ASSET</span>
+          <span className="telemetry-value highlight">BTCUSDT.P</span>
         </div>
-        <div className="topbar-right">
-          <div className="live-pill">
-            <span className={`dot ${status !== 'live' ? 'off' : ''}`} />
-            {statusText}
-          </div>
+        <div className="telemetry-item">
+          <span className="telemetry-label">FEED</span>
+          <span className={`status-flag ${status}`}>
+            <span className="status-indicator" />
+            {status.toUpperCase()}
+          </span>
+        </div>
+        <div className="telemetry-item">
+          <span className="telemetry-label">SERVER / IST CLOCK</span>
+          <span className="telemetry-value font-mono">{istDateStr}</span>
+        </div>
+        <div className="telemetry-item">
+          <span className="telemetry-label">BASELINE CALIBRATION</span>
+          <span className="telemetry-value font-mono">
+            {baseline.dataStart ? `${baseline.dataStart.slice(0, 10)} → ${baseline.dataEnd.slice(0, 10)}` : 'Loading'}
+          </span>
+        </div>
+        <div className="telemetry-actions">
+          <button className="text-btn" onClick={() => exportJSON().catch(() => setMessage('Export failed.'))}>JSON</button>
+          <span className="sep">/</span>
+          <button className="text-btn" onClick={() => exportCSV().catch(() => setMessage('Export failed.'))}>CSV</button>
+          <span className="sep">/</span>
+          <button className="text-btn" onClick={downloadServerLog}>SERVER LOG</button>
         </div>
       </header>
 
-      {/* Hero Decision Section */}
-      <section className="hero">
-        <div className="card regime-card">
-          <div className="kicker">Current Market Weather · IST</div>
-          <div className={`status-badge ${currentRetail.badgeClass}`}>
-            {currentRetail.badge}
+      {/* Main Structural Frame */}
+      <main className="terminal-frame">
+        {/* Masthead Header */}
+        <div className="masthead">
+          <div className="masthead-main">
+            <h1 className="masthead-title">Market Condition Engine</h1>
+            <p className="masthead-lead">
+              Two-axis volatility range and directional persistence filter. Evaluates closed-candle price action against local historical distributions to determine whether current market conditions offer positive statistical expectancy.
+            </p>
           </div>
-
-          <div className="verdict-title">{currentRetail.actionTitle}</div>
-          <p className="verdict-desc">{currentRetail.actionDesc}</p>
-
-          <div className="multi-tf-box">
-            <div className="multi-tf-head">Multi-Timeframe Alignment Check:</div>
-            <div className="multi-tf-row">
-              <span className="tf-tag">
-                5m Immediate: <strong>{primary?.label ?? '—'}</strong>
-              </span>
-              <span className="tf-tag">
-                15m Trend: <strong className={readings['15m']?.label.toLowerCase()}>{readings['15m']?.label ?? '—'}</strong>
-              </span>
-              <span className="tf-tag">
-                1h Macro: <strong className={readings['1h']?.label.toLowerCase()}>{readings['1h']?.label ?? '—'}</strong>
-              </span>
-            </div>
-            <div className="multi-tf-summary">{multiTimeframeAdvice}</div>
-          </div>
-
-          <div className="stamp">{when} IST · Based on closed 5m candle</div>
-        </div>
-
-        {/* 4 Pulse Cards */}
-        <div className="metrics">
-          <div className="card metric">
-            <div className="metric-label">Volatility Pulse</div>
-            <div className="metric-value">{primary ? `${fmt(primary.activity)}th %` : '—'}</div>
-            <div className="metric-bar-track">
-              <div className="metric-bar-fill" style={{ width: `${Math.min(100, primary?.activity ?? 0)}%` }} />
-            </div>
-            <div className="metric-note">
-              {(primary?.activity ?? 0) >= 55 ? '🔥 Above average volatility for this hour' : '💤 Below average range for this hour'}
-            </div>
-          </div>
-
-          <div className="card metric">
-            <div className="metric-label">Direction Strength</div>
-            <div className="metric-value">{primary ? `${fmt(primary.persistence)}th %` : '—'}</div>
-            <div className="metric-bar-track">
-              <div className="metric-bar-fill persistence-fill" style={{ width: `${Math.min(100, primary?.persistence ?? 0)}%` }} />
-            </div>
-            <div className="metric-note">
-              {(primary?.persistence ?? 0) >= 65 ? '🎯 Price moving in one clean direction' : '🔀 Price churning back and forth'}
-            </div>
-          </div>
-
-          <div className="card metric">
-            <div className="metric-label">Last 24 Hours Dead Ratio</div>
-            <div className="metric-value highlight-dead">{chartStats.deadPct}%</div>
-            <div className="metric-note">
-              Market was asleep for <strong>{Math.round((chartStats.deadPct / 100) * 24)} hours</strong> today.
-            </div>
-          </div>
-
-          <div className="card metric">
-            <div className="metric-label">Current State Streak</div>
-            <div className="metric-value streak-value">{chartStats.streakText.split('for last')[1] ?? '—'}</div>
-            <div className="metric-note">
-              Current condition: <strong style={{ color: currentRetail.color }}>{currentRetail.name}</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 24-48hr Historical Line Chart */}
-      <section className="card chart-section">
-        <div className="chart-header">
-          <div>
-            <h2 className="section-title">Historic Condition Chart (Dead vs Active Zones)</h2>
-            <div className="section-note">
-              Visualizes the exact moments Bitcoin went DEAD (sleep mode) versus when it showed clean MOMENTUM.
-            </div>
-          </div>
-          <div className="chart-controls">
-            <div className="toggle-group">
-              <button
-                className={`toggle-btn ${chartRange === '24h' ? 'active' : ''}`}
-                onClick={() => setChartRange('24h')}
-              >
-                Last 24 Hours
-              </button>
-              <button
-                className={`toggle-btn ${chartRange === '48h' ? 'active' : ''}`}
-                onClick={() => setChartRange('48h')}
-              >
-                Last 48 Hours
-              </button>
-            </div>
-            <div className="toggle-group">
-              <button
-                className={`toggle-btn ${filterMode === 'all' ? 'active' : ''}`}
-                onClick={() => setFilterMode('all')}
-              >
-                All Conditions
-              </button>
-              <button
-                className={`toggle-btn ${filterMode === 'dead-only' ? 'active' : ''}`}
-                onClick={() => setFilterMode('dead-only')}
-              >
-                Highlight Dead
-              </button>
-              <button
-                className={`toggle-btn ${filterMode === 'trend-only' ? 'active' : ''}`}
-                onClick={() => setFilterMode('trend-only')}
-              >
-                Highlight Trending
-              </button>
+          <div className="masthead-status">
+            <div className="primary-state-box" data-state={meta.code}>
+              <div className="state-micro-label">PRIMARY STATE (5M)</div>
+              <div className="state-display-name">{meta.name}</div>
+              <div className="state-tag">{meta.tag}</div>
             </div>
           </div>
         </div>
 
-        {/* Breakdown Stats Strip */}
-        <div className="chart-stats-strip">
-          <div className="stat-pill dead-pill">
-            <span className="dot-mini dead-dot" /> <strong>{chartStats.deadPct}% Dead</strong> (Flatline / Sleep)
-          </div>
-          <div className="stat-pill trend-pill">
-            <span className="dot-mini trend-dot" /> <strong>{chartStats.trendPct}% Trending</strong> (Momentum)
-          </div>
-          <div className="stat-pill chop-pill">
-            <span className="dot-mini chop-dot" /> <strong>{chartStats.chopPct}% Choppy</strong> (Trap)
-          </div>
-          <div className="stat-pill grind-pill">
-            <span className="dot-mini grind-dot" /> <strong>{chartStats.grindPct}% Slow Drift</strong> (Crawl)
-          </div>
-          <div className="chart-legend-hint">Hover anywhere on chart to inspect exact candle conditions</div>
-        </div>
+        {/* Primary Stance & Metrics Ledger */}
+        <section className="workbench-grid">
+          {/* Left Column: Situational Stance */}
+          <div className="panel stance-panel">
+            <div className="panel-header">
+              <span className="panel-num">01</span>
+              <h2 className="panel-title">Situational Assessment</h2>
+            </div>
+            <p className="stance-statement">{meta.stance}</p>
+            <div className="tactical-directive">
+              <span className="directive-tag">TACTICAL STANCE</span>
+              <p className="directive-body">{meta.tactics}</p>
+            </div>
 
-        {/* Hover Inspector Card */}
-        {activeHover && (
-          <div className="hover-inspector">
-            <div className="hover-item">
-              <span className="hover-label">TIME (IST)</span>
-              <span className="hover-val">{activeHover.istLabel}</span>
+            {/* Timeframe Alignment Matrix */}
+            <div className="tf-matrix">
+              <div className="tf-matrix-header">
+                <span>TIMEFRAME CONFIRMATION MATRIX</span>
+                <span className="alignment-flag">{alignmentStatus}</span>
+              </div>
+              <div className="tf-row">
+                <div className="tf-cell">
+                  <span className="tf-name">5m Immediate</span>
+                  <span className={`tf-state ${primary?.label.toLowerCase() ?? ''}`}>
+                    {primary?.label ?? '—'}
+                  </span>
+                </div>
+                <div className="tf-cell">
+                  <span className="tf-name">15m Intermediate</span>
+                  <span className={`tf-state ${readings['15m']?.label.toLowerCase() ?? ''}`}>
+                    {readings['15m']?.label ?? '—'}
+                  </span>
+                </div>
+                <div className="tf-cell">
+                  <span className="tf-name">1h Structural</span>
+                  <span className={`tf-state ${readings['1h']?.label.toLowerCase() ?? ''}`}>
+                    {readings['1h']?.label ?? '—'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="hover-item">
-              <span className="hover-label">BTC PRICE</span>
-              <span className="hover-val price-val">{fmtCurrency(activeHover.price)}</span>
+          </div>
+
+          {/* Right Column: Quantitative Telemetry */}
+          <div className="panel telemetry-panel">
+            <div className="panel-header">
+              <span className="panel-num">02</span>
+              <h2 className="panel-title">Axis Readings &amp; Distribution</h2>
             </div>
-            <div className="hover-item">
-              <span className="hover-label">MARKET STATE</span>
-              <span className={`hover-val state-val ${activeHover.label.toLowerCase()}`}>
-                {RETAIL_CONFIG[activeHover.label].name}
+
+            <div className="telemetry-rows">
+              {/* Volatility Pulse */}
+              <div className="numeric-row">
+                <div className="numeric-meta">
+                  <span className="numeric-label">VOLATILITY RANGE PULSE</span>
+                  <span className="numeric-figure">{primary ? `${fmt(primary.activity, 1)}th` : '—'}</span>
+                </div>
+                <div className="gauge-track">
+                  <div className="gauge-fill" style={{ width: `${Math.min(100, primary?.activity ?? 0)}%` }} />
+                  <div className="gauge-marker" style={{ left: '55%' }} title="Threshold: 55th" />
+                </div>
+                <div className="numeric-desc">
+                  12-bar true range normalized to basis points vs historical IST hour × weekday distribution. High threshold: ≥55th.
+                </div>
+              </div>
+
+              {/* Direction Persistence */}
+              <div className="numeric-row">
+                <div className="numeric-meta">
+                  <span className="numeric-label">DIRECTIONAL PERSISTENCE</span>
+                  <span className="numeric-figure">{primary ? `${fmt(primary.persistence, 1)}th` : '—'}</span>
+                </div>
+                <div className="gauge-track">
+                  <div className="gauge-fill persistence" style={{ width: `${Math.min(100, primary?.persistence ?? 0)}%` }} />
+                  <div className="gauge-marker" style={{ left: '65%' }} title="Threshold: 65th" />
+                </div>
+                <div className="numeric-desc">
+                  Ratio of net close-to-close displacement to total absolute path. High threshold: ≥65th.
+                </div>
+              </div>
+
+              {/* State Duration & 24h Summary */}
+              <div className="breakdown-grid">
+                <div className="breakdown-cell">
+                  <span className="cell-label">CURRENT DURATION</span>
+                  <span className="cell-val">{stats.streakText}</span>
+                </div>
+                <div className="breakdown-cell">
+                  <span className="cell-label">24H DORMANT / DEAD RATIO</span>
+                  <span className="cell-val highlight-dead">{stats.deadPct}% of elapsed time</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Historical Price & Condition Ledger Chart */}
+        <section className="panel chart-panel">
+          <div className="panel-header chart-header-row">
+            <div>
+              <span className="panel-num">03</span>
+              <h2 className="panel-title">Historical Condition Timeline (BTCUSDT)</h2>
+            </div>
+            <div className="chart-actions">
+              <div className="segmented-control">
+                <button
+                  className={`segment-btn ${chartRange === '24h' ? 'active' : ''}`}
+                  onClick={() => setChartRange('24h')}
+                >
+                  24H
+                </button>
+                <button
+                  className={`segment-btn ${chartRange === '48h' ? 'active' : ''}`}
+                  onClick={() => setChartRange('48h')}
+                >
+                  48H
+                </button>
+              </div>
+              <div className="segmented-control">
+                <button
+                  className={`segment-btn ${filterMode === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilterMode('all')}
+                >
+                  ALL
+                </button>
+                <button
+                  className={`segment-btn ${filterMode === 'dead' ? 'active' : ''}`}
+                  onClick={() => setFilterMode('dead')}
+                >
+                  DEAD ONLY
+                </button>
+                <button
+                  className={`segment-btn ${filterMode === 'trend' ? 'active' : ''}`}
+                  onClick={() => setFilterMode('trend')}
+                >
+                  TREND ONLY
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Hover Telemetry HUD Bar */}
+          <div className="chart-hud-bar">
+            <div className="hud-metric">
+              <span className="hud-lbl">CANDLE TIME (IST)</span>
+              <span className="hud-val">{activeHover?.istLabel ?? '—'}</span>
+            </div>
+            <div className="hud-metric">
+              <span className="hud-lbl">CLOSE PRICE</span>
+              <span className="hud-val price">{activeHover ? fmtUsd(activeHover.price) : '—'}</span>
+            </div>
+            <div className="hud-metric">
+              <span className="hud-lbl">CLASSIFICATION</span>
+              <span className={`hud-val condition ${activeHover?.label.toLowerCase() ?? ''}`}>
+                {activeHover ? CONDITION_META[activeHover.label].name : '—'}
               </span>
             </div>
-            <div className="hover-item">
-              <span className="hover-label">VOLATILITY PULSE</span>
-              <span className="hover-val">{fmt(activeHover.activity)}th %</span>
+            <div className="hud-metric">
+              <span className="hud-lbl">VOLATILITY RANGE</span>
+              <span className="hud-val">{activeHover ? `${fmt(activeHover.activity, 1)}%` : '—'}</span>
             </div>
-            <div className="hover-item">
-              <span className="hover-label">DIRECTION STRENGTH</span>
-              <span className="hover-val">{fmt(activeHover.persistence)}th %</span>
+            <div className="hud-metric">
+              <span className="hud-lbl">PERSISTENCE</span>
+              <span className="hud-val">{activeHover ? `${fmt(activeHover.persistence, 1)}%` : '—'}</span>
             </div>
-            <div className="hover-item note-item">
-              <span className="hover-label">TAKEAWAY</span>
-              <span className="hover-note">{RETAIL_CONFIG[activeHover.label].tip}</span>
+            <div className="hud-metric right-aligned">
+              <span className="hud-lbl">TOTAL ACCUMULATION</span>
+              <span className="hud-val muted-val">
+                {stats.deadPct}% Dead · {stats.trendPct}% Trend · {stats.chopPct}% Chop · {stats.grindPct}% Drift
+              </span>
             </div>
           </div>
-        )}
 
-        {/* SVG Canvas */}
-        <div className="svg-container">
-          <svg
-            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            className="chart-svg"
-            onMouseMove={e => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const relX = (e.clientX - rect.left) / rect.width * svgWidth;
-              const idx = Math.round(((relX - padLeft) / plotW) * (chartPoints.length - 1));
-              if (idx >= 0 && idx < chartPoints.length) setHoverIndex(idx);
-            }}
-            onMouseLeave={() => setHoverIndex(null)}
-          >
-            <defs>
-              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#77e5cf" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="#77e5cf" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-
-            {/* Background Condition Shading Bands */}
-            {conditionBands.map((band, i) => {
-              const xStart = padLeft + (band.start / Math.max(1, chartPoints.length - 1)) * plotW;
-              const xEnd = padLeft + (band.end / Math.max(1, chartPoints.length - 1)) * plotW;
-              const bandWidth = Math.max(2, xEnd - xStart);
-              const conf = RETAIL_CONFIG[band.label];
-
-              // Filter highlighting logic
-              const isDimmed =
-                (filterMode === 'dead-only' && band.label !== 'DEAD') ||
-                (filterMode === 'trend-only' && band.label !== 'TREND');
-
-              return (
-                <g key={i}>
-                  <rect
-                    x={xStart}
-                    y={padTop}
-                    width={bandWidth}
-                    height={plotH}
-                    fill={isDimmed ? 'transparent' : conf.bgHex}
-                  />
-                  {/* Subtle label if span is wide enough */}
-                  {bandWidth > 60 && !isDimmed && (
-                    <text
-                      x={xStart + 8}
-                      y={padTop + 16}
-                      fill={conf.color}
-                      fontSize="10"
-                      fontFamily="DM Mono, monospace"
-                      opacity="0.75"
-                    >
-                      {conf.name}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Horizontal Gridlines & Price Labels */}
-            {[0, 0.33, 0.66, 1].map((ratio, i) => {
-              const y = padTop + plotH * (1 - ratio);
-              const price = minPrice + (maxPrice - minPrice) * ratio;
-              return (
-                <g key={i}>
-                  <line
-                    x1={padLeft}
-                    y1={y}
-                    x2={padLeft + plotW}
-                    y2={y}
-                    stroke="rgba(255,255,255,0.06)"
-                    strokeDasharray="4 4"
-                  />
-                  <text
-                    x={padLeft - 10}
-                    y={y + 4}
-                    fill="var(--muted)"
-                    fontSize="11"
-                    fontFamily="DM Mono, monospace"
-                    textAnchor="end"
-                  >
-                    {fmtCurrency(price)}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Area Fill */}
-            {areaPath && <path d={areaPath} fill="url(#areaGradient)" />}
-
-            {/* Main Price Line */}
-            {pricePath && (
-              <path
-                d={pricePath}
-                fill="none"
-                stroke="var(--text)"
-                strokeWidth="2.2"
-                strokeLinejoin="round"
-              />
-            )}
-
-            {/* Vertical Cursor Crosshair */}
-            {hoverIndex !== null && (
-              <g>
-                <line
-                  x1={activeHoverX}
-                  y1={padTop}
-                  x2={activeHoverX}
-                  y2={padTop + plotH}
-                  stroke="var(--cyan)"
-                  strokeWidth="1.5"
-                  strokeDasharray="3 3"
-                />
-                <circle
-                  cx={activeHoverX}
-                  cy={activeHoverY}
-                  r="5"
-                  fill="var(--cyan)"
-                  stroke="#080a0f"
-                  strokeWidth="2"
-                />
-              </g>
-            )}
-
-            {/* Bottom Timeline Ribbon Tape */}
-            {chartPoints.map((p, idx) => {
-              const x = padLeft + (idx / Math.max(1, chartPoints.length - 1)) * plotW;
-              const barWidth = Math.max(1.8, plotW / chartPoints.length);
-              return (
-                <rect
-                  key={idx}
-                  x={x}
-                  y={padTop + plotH + 12}
-                  width={barWidth}
-                  height="8"
-                  fill={RETAIL_CONFIG[p.label].color}
-                  opacity="0.9"
-                />
-              );
-            })}
-
-            {/* Ribbon Label */}
-            <text
-              x={padLeft - 10}
-              y={padTop + plotH + 20}
-              fill="var(--muted)"
-              fontSize="10"
-              fontFamily="DM Mono, monospace"
-              textAnchor="end"
+          {/* SVG Canvas */}
+          <div className="chart-stage">
+            <svg
+              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+              className="chart-canvas"
+              onMouseMove={e => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const relX = ((e.clientX - rect.left) / rect.width) * svgWidth;
+                const idx = Math.round(((relX - padLeft) / plotW) * (chartPoints.length - 1));
+                if (idx >= 0 && idx < chartPoints.length) setHoverIndex(idx);
+              }}
+              onMouseLeave={() => setHoverIndex(null)}
             >
-              STATE TAPE
-            </text>
-          </svg>
-        </div>
-      </section>
+              {/* Background Condition Spans */}
+              {conditionBands.map((band, i) => {
+                const xStart = padLeft + (band.start / Math.max(1, chartPoints.length - 1)) * plotW;
+                const xEnd = padLeft + (band.end / Math.max(1, chartPoints.length - 1)) * plotW;
+                const bandWidth = Math.max(1.5, xEnd - xStart);
+                const conf = CONDITION_META[band.label];
 
-      {/* Educational Guide: 30-Second Trader Cheat Sheet */}
-      <section className="cheat-sheet-section">
-        <h2 className="section-title">The 4 Market Conditions: How to Trade Each One</h2>
-        <div className="section-note" style={{ marginBottom: 16 }}>
-          Most retail traders lose money because they trade during DEAD or CHOPPY periods. Here is how to use this tool:
-        </div>
+                const isHidden =
+                  (filterMode === 'dead' && band.label !== 'DEAD') ||
+                  (filterMode === 'trend' && band.label !== 'TREND');
 
-        <div className="cheat-grid">
-          <div className="cheat-card cheat-trend">
-            <div className="cheat-header">
-              <span className="dot-mini trend-dot" />
-              <h3>🟢 Trending (Prime Window)</h3>
-            </div>
-            <p className="cheat-desc">
-              <strong>High Volatility + High Direction.</strong> Price is making sustained, powerful moves in one direction.
-            </p>
-            <div className="cheat-rule">
-              <strong>Your Action:</strong> GREEN LIGHT. Look for trend pullback entries in the direction of momentum.
-            </div>
+                if (isHidden) return null;
+
+                return (
+                  <g key={i}>
+                    <rect
+                      x={xStart}
+                      y={padTop}
+                      width={bandWidth}
+                      height={plotH}
+                      fill={conf.bgRgba}
+                    />
+                    {bandWidth > 55 && (
+                      <text
+                        x={xStart + 6}
+                        y={padTop + 14}
+                        fill={conf.color}
+                        fontSize="9"
+                        fontFamily="JetBrains Mono, monospace"
+                        opacity="0.85"
+                        letterSpacing="0.06em"
+                      >
+                        {conf.name}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Grid Lines & Price Labels */}
+              {[0, 0.33, 0.66, 1].map((ratio, i) => {
+                const y = padTop + plotH * (1 - ratio);
+                const price = minPrice + (maxPrice - minPrice) * ratio;
+                return (
+                  <g key={i}>
+                    <line
+                      x1={padLeft}
+                      y1={y}
+                      x2={padLeft + plotW}
+                      y2={y}
+                      stroke="#1a1e26"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={padLeft - 8}
+                      y={y + 3.5}
+                      fill="#6b7280"
+                      fontSize="10"
+                      fontFamily="JetBrains Mono, monospace"
+                      textAnchor="end"
+                    >
+                      {fmtUsd(price)}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Solid High-Contrast Price Line */}
+              {pricePath && (
+                <path
+                  d={pricePath}
+                  fill="none"
+                  stroke="#f3f4f6"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+              )}
+
+              {/* Interactive Crosshair */}
+              {hoverIndex !== null && (
+                <g>
+                  <line
+                    x1={activeHoverX}
+                    y1={padTop}
+                    x2={activeHoverX}
+                    y2={padTop + plotH}
+                    stroke="#9ca3af"
+                    strokeWidth="1"
+                    strokeDasharray="2 2"
+                  />
+                  <circle
+                    cx={activeHoverX}
+                    cy={activeHoverY}
+                    r="4"
+                    fill="#f3f4f6"
+                    stroke="#0b0c0e"
+                    strokeWidth="1.5"
+                  />
+                </g>
+              )}
+
+              {/* Bottom State Ribbon Bar */}
+              {chartPoints.map((p, idx) => {
+                const x = padLeft + (idx / Math.max(1, chartPoints.length - 1)) * plotW;
+                const barWidth = Math.max(1.5, plotW / chartPoints.length);
+                return (
+                  <rect
+                    key={idx}
+                    x={x}
+                    y={padTop + plotH + 8}
+                    width={barWidth}
+                    height="6"
+                    fill={CONDITION_META[p.label].color}
+                  />
+                );
+              })}
+
+              <text
+                x={padLeft - 8}
+                y={padTop + plotH + 14}
+                fill="#4b5563"
+                fontSize="9"
+                fontFamily="JetBrains Mono, monospace"
+                textAnchor="end"
+              >
+                TAPE
+              </text>
+            </svg>
           </div>
+        </section>
 
-          <div className="cheat-card cheat-chop">
-            <div className="cheat-header">
-              <span className="dot-mini chop-dot" />
-              <h3>🟡 Choppy (The Trap Zone)</h3>
+        {/* Structural Matrix & Performance Ledgers */}
+        <section className="workbench-grid">
+          {/* Classification Matrix Reference Table */}
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-num">04</span>
+              <h2 className="panel-title">Condition Classification Reference</h2>
             </div>
-            <p className="cheat-desc">
-              <strong>High Volatility + Low Direction.</strong> Big spikes up and down, but zero net progress.
-            </p>
-            <div className="cheat-rule">
-              <strong>Your Action:</strong> STAND ASIDE. Breakouts fail instantly and hit stop-losses on both sides.
-            </div>
-          </div>
-
-          <div className="cheat-card cheat-grind">
-            <div className="cheat-header">
-              <span className="dot-mini grind-dot" />
-              <h3>🔵 Slow Drift (Creep Move)</h3>
-            </div>
-            <p className="cheat-desc">
-              <strong>Low Volatility + Steady Direction.</strong> Price crawls slowly in one direction with low range.
-            </p>
-            <div className="cheat-rule">
-              <strong>Your Action:</strong> CAUTIOUS. Aim for quick, smaller profit targets. Don&apos;t expect runners.
-            </div>
-          </div>
-
-          <div className="cheat-card cheat-dead">
-            <div className="cheat-header">
-              <span className="dot-mini dead-dot" />
-              <h3>⚪ Dead (The Graveyard)</h3>
-            </div>
-            <p className="cheat-desc">
-              <strong>Low Volatility + Zero Direction.</strong> Complete flatline. No volume, no buyers, no sellers.
-            </p>
-            <div className="cheat-rule">
-              <strong>Your Action:</strong> CLOSE CHARTS. Trading here just donates fees to the exchange. Wait for volatility.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Intraday Sessions & Weekday Statistics */}
-      <section className="grid">
-        <div className="card section">
-          <div className="section-head">
-            <h2 className="section-title">Best Trading Sessions (Historical)</h2>
-            <span className="section-note">15m Trend Continuations · OOS</span>
-          </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Session</th>
-                <th className="num">Trades (n)</th>
-                <th className="num">Median Return</th>
-                <th className="num">2R Target Hit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {baseline.sessions.slice(0, 5).map(x => (
-                <tr key={x.name}>
-                  <td>
-                    {x.name}
-                    {x.samples < 15 && <span className="small-sample"> (small sample)</span>}
-                  </td>
-                  <td className="num">{x.samples}</td>
-                  <td className={`num ${x.medianOutcomeR >= 0 ? 'positive' : 'negative'}`}>
-                    {x.medianOutcomeR >= 0 ? `+${x.medianOutcomeR.toFixed(2)} R` : `${x.medianOutcomeR.toFixed(2)} R`}
-                  </td>
-                  <td className="num">{(x.hit2R * 100).toFixed(0)}%</td>
+            <table className="ledger-table">
+              <thead>
+                <tr>
+                  <th>REGIME</th>
+                  <th>VOLATILITY (RANGE)</th>
+                  <th>PERSISTENCE (DIRECTION)</th>
+                  <th>TRADE STANCE</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="table-caveat">
-            * Sample size per bucket is small ($n &lt; 15$), making individual rankings noisy. Treat as historical reference rather than a rigid rule.
-          </div>
-        </div>
-
-        <div className="card section">
-          <div className="section-head">
-            <h2 className="section-title">Weekday Breakdown (Historical)</h2>
-            <span className="section-note">Non-overlapping events</span>
-          </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th className="num">Trades (n)</th>
-                <th className="num">Median Return</th>
-                <th className="num">2R Target Hit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {baseline.weekdays.slice(0, 5).map(x => (
-                <tr key={x.name}>
-                  <td>
-                    {x.name}
-                    {x.samples < 15 && <span className="small-sample"> (small sample)</span>}
-                  </td>
-                  <td className="num">{x.samples}</td>
-                  <td className={`num ${x.medianOutcomeR >= 0 ? 'positive' : 'negative'}`}>
-                    {x.medianOutcomeR >= 0 ? `+${x.medianOutcomeR.toFixed(2)} R` : `${x.medianOutcomeR.toFixed(2)} R`}
-                  </td>
-                  <td className="num">{(x.hit2R * 100).toFixed(0)}%</td>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-bold status-cell-trend">TRENDING</td>
+                  <td>High (≥ 55th)</td>
+                  <td>High (≥ 65th)</td>
+                  <td>Momentum execution (pullback &amp; continuation)</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="table-caveat">
-            * Friday &amp; Thursday showed highest historical continuation probability in the 6-month test period.
+                <tr>
+                  <td className="font-bold status-cell-chop">CHOPPY</td>
+                  <td>High (≥ 55th)</td>
+                  <td>Low (&lt; 65th)</td>
+                  <td>Stand aside (breakout failure risk)</td>
+                </tr>
+                <tr>
+                  <td className="font-bold status-cell-grind">SLOW DRIFT</td>
+                  <td>Low (&lt; 55th)</td>
+                  <td>High (≥ 65th)</td>
+                  <td>Selective (subdued target expectancy)</td>
+                </tr>
+                <tr>
+                  <td className="font-bold status-cell-dead">DEAD / FLAT</td>
+                  <td>Low (&lt; 55th)</td>
+                  <td>Low (&lt; 65th)</td>
+                  <td>Capital preservation (negative EV after fees)</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
 
-      {/* Footer & Data Tools */}
-      <footer className="footer">
-        <div>
-          <span>{message}</span>
-        </div>
-        <div className="footer-links">
-          <span>Export calls: </span>
-          <button className="export" onClick={() => exportJSON().catch(() => setMessage('Could not export IndexedDB.'))}>JSON</button>
-          <span> · </span>
-          <button className="export" onClick={() => exportCSV().catch(() => setMessage('No log entries to export.'))}>CSV</button>
-          <span> · </span>
-          <button className="export" onClick={downloadServerLog}>Server Log</button>
-          <span> · </span>
-          <span>{baseline.dataStart ? `Baseline: ${baseline.dataStart.slice(0, 10)} → ${baseline.dataEnd.slice(0, 10)}` : 'No baseline loaded'}</span>
-        </div>
-      </footer>
-    </main>
+          {/* Intraday Sessions Ledger */}
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-num">05</span>
+              <h2 className="panel-title">Intraday Session Expectancy (15m OOS)</h2>
+            </div>
+            <table className="ledger-table">
+              <thead>
+                <tr>
+                  <th>SESSION</th>
+                  <th className="num">N</th>
+                  <th className="num">MEDIAN R</th>
+                  <th className="num">2R TARGET HIT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {baseline.sessions.slice(0, 5).map(x => (
+                  <tr key={x.name}>
+                    <td>
+                      {x.name}
+                      {x.samples < 15 && <span className="footnote-flag"> *</span>}
+                    </td>
+                    <td className="num">{x.samples}</td>
+                    <td className={`num ${x.medianOutcomeR >= 0 ? 'cell-pos' : 'cell-neg'}`}>
+                      {x.medianOutcomeR >= 0 ? `+${x.medianOutcomeR.toFixed(2)}R` : `${x.medianOutcomeR.toFixed(2)}R`}
+                    </td>
+                    <td className="num">{(x.hit2R * 100).toFixed(0)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="panel-footnote">
+              * Note: Sample size per session bucket is modest (n &lt; 15). Individual session rankings exhibit variance and should not be used as standalone rules.
+            </div>
+          </div>
+        </section>
+
+        {/* Global Footer & Calibration Notice */}
+        <footer className="terminal-footer">
+          <div className="footer-status-text">
+            <span>{message}</span>
+          </div>
+          <div className="footer-note">
+            Calibration notice: Baselines fitted on historical window ({baseline.dataStart?.slice(0, 10)} → {baseline.dataEnd?.slice(0, 10)}). During quieter periods, TREND frequency naturally decreases as the engine measures market activity relative to historical norms.
+          </div>
+        </footer>
+      </main>
+    </div>
   );
 }
