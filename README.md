@@ -47,7 +47,7 @@ npm run build
 npm run start
 ```
 
-Deploy the repository to Vercel after running the data pipeline and committing `public/baseline.json`. The browser connects directly to `wss://fstream.binance.com/stream?streams=btcusdt@kline_5m/btcusdt@kline_15m/btcusdt@kline_1h`; no API key or backend WebSocket proxy is needed for public market data. Closed regime calls are retained in browser IndexedDB and can be exported as JSON or CSV from the terminal. A server-side JSONL log is also available when running on a persistent host (`next start`, Docker, VPS).
+Deploy the repository to Vercel after running the data pipeline and committing `public/baseline.json`. The browser connects directly to `wss://fstream.binance.com/stream?streams=btcusdt@kline_5m/btcusdt@kline_15m/btcusdt@kline_1h`; no API key or backend WebSocket proxy is needed for public market data. Closed regime calls are retained in browser IndexedDB and can be exported as JSON or CSV directly from the terminal header.
 
 Run `npm run data:verify` after each analysis run to check timezone mapping, 5m browser/research formula parity, baseline shape, artifact structure, and calibration drift. Use `npm run data:pipeline` to download, analyze, and verify in one command.
 

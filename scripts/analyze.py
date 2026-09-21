@@ -14,7 +14,19 @@ OUT = ROOT / "public" / "baseline.json"
 IST = "Asia/Kolkata"
 PROBS = np.array([10, 25, 50, 75, 90], dtype=float)
 TIMEFRAMES = {"5m": {"lookback": 12, "label": "60m primary"}, "15m": {"lookback": 8, "label": "2h confirmation"}, "1h": {"lookback": 6, "label": "6h context"}}
-REGIME_SPEC = {"version": 3, "activityHigh": 50, "persistenceHigh": 50, "labels": {"trend": "activity >= 50 & persistence >= 50, or persistence >= 65 & activity >= 30", "chop": "activity >= 50 & persistence < 50", "grind": "persistence >= 50 & activity < 50", "dead": "activity < 50 & persistence < 50"}}
+REGIME_SPEC = {
+    "version": 3,
+    "activityHigh": 50,
+    "persistenceHigh": 50,
+    "trendPersistenceExtended": 65,
+    "trendActivityFloor": 30,
+    "labels": {
+        "trend": "activity >= 50 & persistence >= 50, or persistence >= 65 & activity >= 30",
+        "chop": "activity >= 50 & persistence < 50",
+        "grind": "persistence >= 50 & activity < 50",
+        "dead": "activity < 50 & persistence < 50",
+    },
+}
 
 
 def load_frame(interval: str) -> pd.DataFrame:
@@ -84,7 +96,7 @@ def baseline(frame: pd.DataFrame, fit_end: pd.Timestamp) -> dict:
     return out
 
 
-def score_frame(frame: pd.DataFrame, hist: dict) -> pd.DataFrame:
+def score_frame(frame: pd.DataFrame, hist: dict, spec: dict = REGIME_SPEC) -> pd.DataFrame:
     frame = frame.copy()
     activity, persistence = [], []
     for _, row in frame.iterrows():
@@ -93,9 +105,13 @@ def score_frame(frame: pd.DataFrame, hist: dict) -> pd.DataFrame:
         persistence.append(local_percentile(float(row.persistence), np.array(b["persistence"])))
     frame["activity_percentile"], frame["persistence_percentile"] = activity, persistence
     act, pers = frame["activity_percentile"], frame["persistence_percentile"]
-    is_trend = ((act >= 50) & (pers >= 50)) | ((pers >= 65) & (act >= 30))
-    is_chop = (act >= 50) & (pers < 50)
-    is_grind = (pers >= 50) & (act < 50)
+    act_high = spec.get("activityHigh", 50)
+    pers_high = spec.get("persistenceHigh", 50)
+    ext_pers = spec.get("trendPersistenceExtended", 65)
+    floor_act = spec.get("trendActivityFloor", 30)
+    is_trend = ((act >= act_high) & (pers >= pers_high)) | ((pers >= ext_pers) & (act >= floor_act))
+    is_chop = (act >= act_high) & (pers < pers_high)
+    is_grind = (pers >= pers_high) & (act < act_high)
     frame["regime"] = np.select([is_trend, is_chop, is_grind], ["trend", "chop", "grind"], default="dead")
     return frame
 

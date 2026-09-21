@@ -143,6 +143,8 @@ def test_regime_spec():
     check("persistenceHigh present", "persistenceHigh" in spec)
     check("activityHigh is 50", spec.get("activityHigh") == 50, str(spec.get("activityHigh")))
     check("persistenceHigh is 50", spec.get("persistenceHigh") == 50, str(spec.get("persistenceHigh")))
+    check("trendPersistenceExtended is 65", spec.get("trendPersistenceExtended") == 65, str(spec.get("trendPersistenceExtended")))
+    check("trendActivityFloor is 30", spec.get("trendActivityFloor") == 30, str(spec.get("trendActivityFloor")))
     check("version present", "version" in spec)
 
     labels = spec.get("labels", {})
