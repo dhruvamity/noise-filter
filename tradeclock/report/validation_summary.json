@@ -1,0 +1,226 @@
+{
+  "generated_at_utc": "2026-09-21T13:24:37.263802+00:00",
+  "instruments": {
+    "BTCUSDT": {
+      "walk_forward": {
+        "n_folds": 3,
+        "folds": [
+          {
+            "train_start": "2023-09-15",
+            "train_end": "2025-03-15",
+            "test_end": "2025-09-15",
+            "train_bars": 157536,
+            "test_bars": 52993,
+            "oos_prime_er_mean": 0.2726,
+            "oos_notrade_er_mean": 0.2737,
+            "oos_er_delta": -0.0011,
+            "oos_prime_ft_prob": 0.506,
+            "oos_notrade_ft_prob": 0.475,
+            "rank_correlation": 0.37,
+            "corr_p_value": 0.0097
+          },
+          {
+            "train_start": "2024-03-15",
+            "train_end": "2025-09-15",
+            "test_end": "2026-03-15",
+            "train_bars": 158112,
+            "test_bars": 52129,
+            "oos_prime_er_mean": 0.2711,
+            "oos_notrade_er_mean": 0.2723,
+            "oos_er_delta": -0.0013,
+            "oos_prime_ft_prob": 0.495,
+            "oos_notrade_ft_prob": 0.468,
+            "rank_correlation": 0.262,
+            "corr_p_value": 0.0724
+          },
+          {
+            "train_start": "2024-09-15",
+            "train_end": "2026-03-15",
+            "test_end": "2026-09-15",
+            "train_bars": 157248,
+            "test_bars": 52993,
+            "oos_prime_er_mean": 0.279,
+            "oos_notrade_er_mean": 0.2825,
+            "oos_er_delta": -0.0035,
+            "oos_prime_ft_prob": 0.505,
+            "oos_notrade_ft_prob": 0.49,
+            "rank_correlation": 0.165,
+            "corr_p_value": 0.2631
+          }
+        ],
+        "avg_oos_er_delta": -0.002,
+        "avg_rank_correlation": 0.266,
+        "verdict": "WEAK_OR_NOISY"
+      },
+      "null_test": {
+        "p_value": 0.0,
+        "is_significant": true,
+        "observed_gap": 7.31,
+        "null_gap_95th": 2.49,
+        "status": "PASS"
+      },
+      "half_life_sensitivity": {
+        "hl_13w": {
+          "mean_score": 50.7,
+          "std_score": 15.9
+        },
+        "hl_26w": {
+          "mean_score": 50.7,
+          "std_score": 15.7
+        },
+        "hl_52w": {
+          "mean_score": 50.7,
+          "std_score": 16.1,
+          "rank_corr_vs_26w": 0.947
+        },
+        "unweighted": {
+          "mean_score": 50.6,
+          "std_score": 17.0,
+          "rank_corr_vs_26w": 0.765
+        }
+      }
+    },
+    "XAUUSD_MT5": {
+      "walk_forward": {
+        "n_folds": 3,
+        "folds": [
+          {
+            "train_start": "2023-09-15",
+            "train_end": "2025-03-15",
+            "test_end": "2025-09-15",
+            "train_bars": 106063,
+            "test_bars": 35488,
+            "oos_prime_er_mean": 0.2969,
+            "oos_notrade_er_mean": 0.2795,
+            "oos_er_delta": 0.0174,
+            "oos_prime_ft_prob": 0.461,
+            "oos_notrade_ft_prob": 0.504,
+            "rank_correlation": 0.27,
+            "corr_p_value": 0.0637
+          },
+          {
+            "train_start": "2024-03-15",
+            "train_end": "2025-09-15",
+            "test_end": "2026-03-15",
+            "train_bars": 106377,
+            "test_bars": 34879,
+            "oos_prime_er_mean": 0.2998,
+            "oos_notrade_er_mean": 0.2819,
+            "oos_er_delta": 0.0178,
+            "oos_prime_ft_prob": 0.493,
+            "oos_notrade_ft_prob": 0.492,
+            "rank_correlation": 0.342,
+            "corr_p_value": 0.0173
+          },
+          {
+            "train_start": "2024-09-15",
+            "train_end": "2026-03-15",
+            "test_end": "2026-09-15",
+            "train_bars": 105520,
+            "test_bars": 35748,
+            "oos_prime_er_mean": 0.2942,
+            "oos_notrade_er_mean": 0.2659,
+            "oos_er_delta": 0.0282,
+            "oos_prime_ft_prob": 0.511,
+            "oos_notrade_ft_prob": 0.507,
+            "rank_correlation": 0.495,
+            "corr_p_value": 0.0004
+          }
+        ],
+        "avg_oos_er_delta": 0.0211,
+        "avg_rank_correlation": 0.369,
+        "verdict": "ROBUST_OUT_OF_SAMPLE"
+      },
+      "null_test": {
+        "p_value": 0.0,
+        "is_significant": true,
+        "observed_gap": 10.48,
+        "null_gap_95th": 2.46,
+        "status": "PASS"
+      },
+      "half_life_sensitivity": {
+        "hl_13w": {
+          "mean_score": 48.7,
+          "std_score": 19.1
+        },
+        "hl_26w": {
+          "mean_score": 48.7,
+          "std_score": 19.5
+        },
+        "hl_52w": {
+          "mean_score": 48.7,
+          "std_score": 19.8,
+          "rank_corr_vs_26w": 0.955
+        },
+        "unweighted": {
+          "mean_score": 48.7,
+          "std_score": 20.0,
+          "rank_corr_vs_26w": 0.799
+        }
+      }
+    },
+    "XAUUSDT_BINANCE": {
+      "walk_forward": {
+        "n_folds": 1,
+        "folds": [
+          {
+            "train_start": "2025-12-11",
+            "train_end": "2026-04-11",
+            "test_end": "2026-09-11",
+            "train_bars": 34848,
+            "test_bars": 44065,
+            "oos_prime_er_mean": 0.3109,
+            "oos_notrade_er_mean": 0.2972,
+            "oos_er_delta": 0.0137,
+            "oos_prime_ft_prob": 0.511,
+            "oos_notrade_ft_prob": 0.489,
+            "rank_correlation": 0.296,
+            "corr_p_value": 0.0411
+          }
+        ],
+        "avg_oos_er_delta": 0.0137,
+        "avg_rank_correlation": 0.296,
+        "verdict": "ROBUST_OUT_OF_SAMPLE"
+      },
+      "null_test": {
+        "p_value": 0.0,
+        "is_significant": true,
+        "observed_gap": 29.02,
+        "null_gap_95th": 5.89,
+        "status": "PASS"
+      },
+      "half_life_sensitivity": {
+        "hl_13w": {
+          "mean_score": 50.4,
+          "std_score": 16.7
+        },
+        "hl_26w": {
+          "mean_score": 50.2,
+          "std_score": 16.8
+        },
+        "hl_52w": {
+          "mean_score": 50.2,
+          "std_score": 16.9,
+          "rank_corr_vs_26w": 0.991
+        },
+        "unweighted": {
+          "mean_score": 50.1,
+          "std_score": 16.9,
+          "rank_corr_vs_26w": 0.964
+        }
+      }
+    }
+  },
+  "dual_gold_cross_validation": {
+    "status": "PASS",
+    "overlap_bars": 53215,
+    "overlap_start_utc": "2025-12-11 08:05:00+00:00",
+    "overlap_end_utc": "2026-09-14 23:55:00+00:00",
+    "return_5m_correlation": 0.9673,
+    "mean_basis_bps": 5.33,
+    "std_basis_bps": 8.02,
+    "median_basis_bps": 6.06,
+    "basis_95th_bps": 17.24,
+    "tracking_quality": "HIGH_CONVERGENCE"
+  }
+}

@@ -1,0 +1,125 @@
+# TradeClock Configuration
+# Central configuration for data pipeline, time model, metrics, classification, and live terminal.
+
+project:
+  name: "TradeClock IST Quant Research & Live Terminal"
+  version: "1.0.0"
+  timezone: "Asia/Kolkata"
+
+instruments:
+  BTCUSDT:
+    symbol: "BTCUSDT"
+    display_name: "Bitcoin Perpetual"
+    source: "binance_futures"
+    contract_type: "PERPETUAL"
+    quote_asset: "USDT"
+    cost_bps_per_side: 5.0    # 10 bps round trip
+    min_range_cost_multiple: 2.5
+    min_liquidity_rel_vol: 0.5
+    has_weekend_trading: true
+
+  XAUUSD_MT5:
+    symbol: "XAUUSD"
+    display_name: "Gold Spot (MT5 Institutional Feed)"
+    source: "mt5_dukascopy"
+    contract_type: "SPOT_CFD"
+    quote_asset: "USD"
+    cost_bps_per_side: 8.0    # 16 bps round trip
+    min_range_cost_multiple: 2.0
+    min_liquidity_rel_vol: 0.4
+    has_weekend_trading: false
+
+  XAUUSDT_BINANCE:
+    symbol: "XAUUSDT"
+    display_name: "Gold Perpetual (Binance USD-M)"
+    source: "binance_futures"
+    contract_type: "TRADIFI_PERPETUAL"
+    quote_asset: "USDT"
+    cost_bps_per_side: 8.0    # 16 bps round trip
+    min_range_cost_multiple: 2.0
+    min_liquidity_rel_vol: 0.4
+    has_weekend_trading: false
+
+timeframes:
+  native: ["5m", "15m", "1h", "4h", "1d", "1w"]
+  base_candle: "5m"
+  analysis_bin_minutes: 30
+
+timemodel:
+  base_bin_minutes: 30
+  weekdays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  special_blocks:
+    fri_late:
+      enabled: true
+      start_time: "00:00"
+      end_time: "04:00"
+      day: "Saturday"
+      mapped_weekday: "Friday"
+      session_name: "US_SESSION_TAIL"
+    mon_early:
+      enabled: true
+      start_time: "03:30"
+      end_time: "06:30"
+      day: "Monday"
+      mapped_weekday: "Monday"
+      session_name: "GOLD_WEEKLY_OPEN"
+    weekend_rest:
+      saturday_closed_from: "04:00"
+      monday_closed_until: "03:30"
+      default_status: "NO_TRADE"
+  dst:
+    track_us: true
+    track_uk: true
+    flag_out_of_sync: true
+    default_regime: "AUTO" # AUTO picks US_SUMMER or US_WINTER by date
+
+recency:
+  default_half_life_weeks: 26.0
+  sensitivity_half_lives: [13.0, 26.0, 52.0, null] # null = unweighted
+  snapshot_weeks: 8
+
+metrics:
+  rolling_er_window_minutes: 60
+  atr_period: 14
+  atr_timeframe: "15m"
+  variance_ratio_short_tf: "5m"
+  variance_ratio_mid_tf: "15m"
+  variance_ratio_long_tf: "1h"
+  false_breakout_lookback_minutes: 60
+  false_breakout_reversal_bars: 6 # 30 min on 5m
+  follow_through_horizon_hours: 3.0
+  follow_through_atr_multiple: 1.0
+  continuation_horizons_hours: [2.0, 4.0]
+  whipsaw_threshold_k_atr: 0.5
+  bootstrap_iterations: 1000
+  bootstrap_block_length_days: 5
+  confidence_interval_level: 0.90
+
+classification:
+  weights:
+    efficiency_ratio: 0.30
+    variance_ratio: 0.15
+    range_cost_ratio: 0.20
+    whipsaw_penalty: 0.15
+    follow_through_prob: 0.20
+  score_thresholds:
+    prime: 70.0
+    swing_entry: 78.0
+    small_trades: 45.0
+    no_trade: 0.0
+  gates:
+    min_range_cost_multiple: 2.0
+    min_rel_volume: 0.50
+    min_follow_through_prob: 0.45
+  slot_merging:
+    min_slot_length_minutes: 60
+    absorb_short_into: "conservative" # conservative: prefer NO_TRADE / SMALL_TRADES
+
+validation:
+  walk_forward:
+    train_window_months: 24
+    test_window_months: 6
+    step_months: 3
+  null_test:
+    permutations: 1000
+    p_value_threshold: 0.05
