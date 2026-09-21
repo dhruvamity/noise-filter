@@ -1,0 +1,41 @@
+{
+  "asset": "XAUUSD (Spot Gold)",
+  "timeframe": "1h",
+  "candles": 17716,
+  "window": 20,
+  "threshold_pct": 1.25,
+  "transition_matrix": [
+    [
+      0.8405707196029777,
+      0.15818858560794044,
+      0.0012406947890818859
+    ],
+    [
+      0.018246869409660107,
+      0.9554919499105545,
+      0.02626118067978533
+    ],
+    [
+      0.000944733112895607,
+      0.17335852621634387,
+      0.8256967406707605
+    ]
+  ],
+  "stickiness": {
+    "BEAR": 0.841,
+    "SIDEWAYS": 0.955,
+    "BULL": 0.826
+  },
+  "stationary_distribution": {
+    "BEAR": 0.091,
+    "SIDEWAYS": 0.789,
+    "BULL": 0.12
+  },
+  "walkforward_performance": {
+    "markov_total_return_pct": 508.2,
+    "markov_max_drawdown_pct": -3.9,
+    "buy_hold_return_pct": 121.6,
+    "buy_hold_max_drawdown_pct": -28.8,
+    "drawdown_reduction_pct": 86.6
+  }
+}

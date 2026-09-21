@@ -1,0 +1,82 @@
+{
+  "strategy_1_radar": {
+    "ungated": {
+      "name": "Radar Trap (Ungated)",
+      "trades": 315,
+      "win_rate": 0.35873015873015873,
+      "profit_factor": 1.1662829910964503,
+      "total_return": 0.08781783486198469,
+      "max_drawdown": -0.07332164353952492,
+      "expectancy_r": 0.1050776979190849
+    },
+    "gated": {
+      "name": "Radar Trap (Markov 2.0 Gated)",
+      "trades": 225,
+      "win_rate": 0.36444444444444446,
+      "profit_factor": 1.209055960402072,
+      "total_return": 0.06393494503934716,
+      "max_drawdown": -0.041307704111307735,
+      "expectancy_r": 0.13013044533540521
+    }
+  },
+  "strategy_1_radar_v2": {
+    "ungated": {
+      "name": "Radar Trap 2.0 (Ungated)",
+      "trades": 314,
+      "win_rate": 0.43312101910828027,
+      "profit_factor": 1.4012781949287365,
+      "total_return": 0.2117290118066415,
+      "max_drawdown": -0.052125487924988924,
+      "expectancy_r": 0.22461706646446325
+    },
+    "gated": {
+      "name": "Radar Trap 2.0 (Markov 2.0 Gated)",
+      "trades": 235,
+      "win_rate": 0.4340425531914894,
+      "profit_factor": 1.4108316835282153,
+      "total_return": 0.18451247406502902,
+      "max_drawdown": -0.03829067993495402,
+      "expectancy_r": 0.22860204482972213
+    }
+  },
+  "strategy_2_ema": {
+    "ungated": {
+      "name": "15M EMA Breakout (Ungated)",
+      "trades": 732,
+      "win_rate": 0.3702185792349727,
+      "profit_factor": 1.053613870750666,
+      "total_return": 0.07822237329228554,
+      "max_drawdown": -0.08045303598056365,
+      "expectancy_r": 0.033574306688700005
+    },
+    "gated": {
+      "name": "15M EMA Breakout (Markov 2.0 Gated)",
+      "trades": 365,
+      "win_rate": 0.3561643835616438,
+      "profit_factor": 0.9750332496520435,
+      "total_return": -0.007834400106820905,
+      "max_drawdown": -0.11254782289063801,
+      "expectancy_r": -0.016017545835450744
+    }
+  },
+  "strategy_3_smc": {
+    "ungated": {
+      "name": "Hardcore SMC (Ungated)",
+      "trades": 1182,
+      "win_rate": 0.36717428087986465,
+      "profit_factor": 0.9134450600825216,
+      "total_return": -0.37605023291004513,
+      "max_drawdown": -0.5045908480172481,
+      "expectancy_r": -0.04902353276642014
+    },
+    "gated": {
+      "name": "Hardcore SMC (Markov 2.0 Gated)",
+      "trades": 894,
+      "win_rate": 0.37583892617449666,
+      "profit_factor": 0.9525009739800004,
+      "total_return": -0.2842772350339553,
+      "max_drawdown": -0.32172915802698593,
+      "expectancy_r": -0.026540689947630678
+    }
+  }
+}

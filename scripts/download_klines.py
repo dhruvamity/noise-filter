@@ -24,7 +24,14 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 BASE = "https://fapi.binance.com"
 SYMBOL = "BTCUSDT"
-INTERVALS = [("5m", 5 * 60_000), ("15m", 15 * 60_000), ("1h", 60 * 60_000)]
+INTERVALS = [
+    ("5m", 5 * 60_000),
+    ("15m", 15 * 60_000),
+    ("1h", 60 * 60_000),
+    ("4h", 4 * 60 * 60_000),
+    ("1d", 24 * 60 * 60_000),
+    ("1w", 7 * 24 * 60 * 60_000),
+]
 FIELDS = ["open_time", "open", "high", "low", "close", "volume", "close_time", "quote_volume", "trade_count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
 
 
@@ -75,7 +82,7 @@ def write_partition(interval: str, rows: list[list]):
 
 
 def main():
-    months = int(os.environ.get("LOOKBACK_DAYS", "180"))
+    days = int(os.environ.get("LOOKBACK_DAYS", "365"))
     info = get_json("/fapi/v1/exchangeInfo")
     server_ms = int(info["serverTime"])
     symbol = next((s for s in info["symbols"] if s["symbol"] == SYMBOL), None)
@@ -85,7 +92,7 @@ def main():
     (ROOT / "data").mkdir(exist_ok=True)
     (ROOT / "data" / "exchange_info.json").write_text(json.dumps(info, indent=2))
     end_ms = server_ms
-    start_ms = int((datetime.fromtimestamp(server_ms / 1000, tz=timezone.utc) - timedelta(days=months)).timestamp() * 1000)
+    start_ms = int((datetime.fromtimestamp(server_ms / 1000, tz=timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     print(f"BTCUSDT perpetual · {datetime.fromtimestamp(start_ms/1000, tz=timezone.utc).isoformat()} → {datetime.fromtimestamp(end_ms/1000, tz=timezone.utc).isoformat()}")
     print(f"Rate limits: {rate_limits}")
     for interval, step in INTERVALS:

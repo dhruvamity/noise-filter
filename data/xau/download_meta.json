@@ -1,0 +1,16 @@
+{
+  "symbol": "XAUUSD",
+  "asset": "Gold vs US Dollar",
+  "ingestion_engine": "Dukascopy Institutional MetaTrader-grade Feed",
+  "date_from": "2023-09-15",
+  "date_to": "2026-09-15",
+  "generated_at": "2026-09-16T20:54:54.304248+00:00",
+  "timeframes": [
+    "5m",
+    "15m",
+    "1h",
+    "4h",
+    "1d",
+    "1w"
+  ]
+}

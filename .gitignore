@@ -1,6 +1,8 @@
 node_modules
 .next
 data/raw
+data/xau/raw
+data/xau/temp
 data/*.csv
 data/*.parquet
 data/analysis
